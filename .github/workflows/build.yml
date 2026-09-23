@@ -17,8 +17,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: pip
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -39,10 +40,20 @@ jobs:
             libgles2-mesa-dev \
             xclip xsel ccache zip unzip openjdk-17-jdk
 
-          python -m pip install --upgrade "pip<25" "setuptools<70" wheel
-          python -m pip install "buildozer==1.5.0" "cython==0.29.33" "python-for-android==2024.1.21"
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade \
+            "pip==24.3.1" \
+            "setuptools<70" \
+            wheel
+          python -m pip install \
+            "buildozer==1.5.0" \
+            "cython==0.29.33" \
+            "python-for-android==2024.1.21"
 
       - name: Build APK with Buildozer
+        env:
+          PIP_CONSTRAINT: ${{ github.workspace }}/.github/pip-constraints.txt
         run: |
           rm -rf .buildozer
           yes | buildozer android debug
