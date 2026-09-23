@@ -18,6 +18,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -37,7 +43,7 @@ jobs:
             libreadline-dev \
             libgl1-mesa-dev \
             libgles2-mesa-dev \
-            xclip xsel ccache zip unzip openjdk-17-jdk
+            xclip xsel ccache zip unzip
 
       - name: Install Python build dependencies
         run: |
