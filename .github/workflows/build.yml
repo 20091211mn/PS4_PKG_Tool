@@ -36,10 +36,11 @@ jobs:
             libffi-dev \
             libreadline-dev \
             libgl1-mesa-dev \
-            libgles2-mesa-dev
+            libgles2-mesa-dev \
+            xclip xsel ccache zip unzip openjdk-17-jdk
 
-          python -m pip install --upgrade "pip==24.0.2" "setuptools<70" wheel
-          python -m pip install "buildozer==1.5.0" "python-for-android==2024.1.21" "cython==0.29.33"
+          python -m pip install --upgrade "pip==24.0" "setuptools<70" wheel
+          python -m pip install "buildozer==1.5.0" "cython==0.29.33"
 
       - name: Build APK with Buildozer
         run: |
