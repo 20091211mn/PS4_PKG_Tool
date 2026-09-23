@@ -1,8 +1,6 @@
 import os
 import math
 import threading
-import arabic_reshaper
-from bidi.algorithm import get_display
 
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
@@ -14,7 +12,26 @@ from kivy.core.text import LabelBase
 from kivy.clock import Clock
 from kivy.utils import platform
 
-# تسجيل الخط العربي بأمان
+# معالجة النصوص العربية بأمان لمنع الانهيار إذا لم تتوفر المكتبات
+try:
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+    HAS_ARABIC_LIBS = True
+except ImportError:
+    HAS_ARABIC_LIBS = False
+
+def fix_text(text):
+    if not text:
+        return ""
+    if HAS_ARABIC_LIBS:
+        try:
+            reshaped = arabic_reshaper.reshape(text)
+            return get_display(reshaped)
+        except Exception:
+            return text
+    return text
+
+# تسجيل الخط إن وجد، وإلا استخدام الخط الافتراضي
 FONT_NAME = 'Roboto'
 font_path = 'Cairo-Regular.ttf'
 if os.path.exists(font_path):
@@ -22,21 +39,14 @@ if os.path.exists(font_path):
         LabelBase.register(name='ArabicFont', fn_regular=font_path)
         FONT_NAME = 'ArabicFont'
     except Exception as e:
-        print(f"Font loading error: {e}")
-
-def fix_text(text):
-    if not text:
-        return ""
-    reshaped = arabic_reshaper.reshape(text)
-    return get_display(reshaped)
+        print(f"Font Error: {e}")
 
 class PS4ToolUI(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', padding=20, spacing=15, **kwargs)
 
-        # العنوان
         self.title_label = Label(
-            text=fix_text("[ أداة تقسيم ودمج ملفات PS4 PKG ]"),
+            text=fix_text("أداة تقسيم ودمج ملفات PS4 PKG"),
             font_name=FONT_NAME,
             font_size='20sp',
             bold=True,
@@ -45,7 +55,6 @@ class PS4ToolUI(BoxLayout):
         )
         self.add_widget(self.title_label)
 
-        # مسار الملف
         self.file_input = TextInput(
             hint_text=fix_text("اكتب مسار ملف الـ PKG هنا..."),
             font_name=FONT_NAME,
@@ -56,7 +65,6 @@ class PS4ToolUI(BoxLayout):
         )
         self.add_widget(self.file_input)
 
-        # حالة العمل
         self.status_label = Label(
             text=fix_text("الحالة: جاهز للعمل"),
             font_name=FONT_NAME,
@@ -66,11 +74,9 @@ class PS4ToolUI(BoxLayout):
         )
         self.add_widget(self.status_label)
 
-        # شريط التقدم
         self.progress_bar = ProgressBar(max=100, value=0, size_hint_y=None, height=20)
         self.add_widget(self.progress_bar)
 
-        # زر التقسيم
         self.split_btn = Button(
             text=fix_text("بدء تقسيم الملف إلى 4 أجزاء"),
             font_name=FONT_NAME,
@@ -102,7 +108,7 @@ class PS4ToolUI(BoxLayout):
         try:
             total_size = os.path.getsize(file_path)
             part_size = math.ceil(total_size / 4)
-            buffer_size = 4 * 1024 * 1024  # 4MB Buffer لسرعة وأمان الذاكرة
+            buffer_size = 4 * 1024 * 1024
 
             self.update_status("جاري بدء عملية التقسيم...", 0)
 
@@ -137,7 +143,7 @@ class PS4PKGToolApp(App):
 
     def on_start(self):
         if platform == 'android':
-            Clock.schedule_once(self.request_android_permissions, 1)
+            Clock.schedule_once(self.request_android_permissions, 1.5)
 
     def request_android_permissions(self, dt):
         try:
@@ -147,7 +153,7 @@ class PS4PKGToolApp(App):
                 Permission.WRITE_EXTERNAL_STORAGE
             ])
         except Exception as e:
-            print(f"Permissions error: {e}")
+            print(f"Permissions request error: {e}")
 
 if __name__ == '__main__':
     PS4PKGToolApp().run()
