@@ -14,11 +14,15 @@ from kivy.core.text import LabelBase
 from kivy.clock import Clock
 from kivy.utils import platform
 
-# تسجيل الخط العربي إن وجد
+# تسجيل الخط العربي بأمان
 FONT_NAME = 'Roboto'
-if os.path.exists('Cairo-Regular.ttf'):
-    LabelBase.register(name='ArabicFont', fn_regular='Cairo-Regular.ttf')
-    FONT_NAME = 'ArabicFont'
+font_path = 'Cairo-Regular.ttf'
+if os.path.exists(font_path):
+    try:
+        LabelBase.register(name='ArabicFont', fn_regular=font_path)
+        FONT_NAME = 'ArabicFont'
+    except Exception as e:
+        print(f"Font loading error: {e}")
 
 def fix_text(text):
     if not text:
@@ -29,8 +33,6 @@ def fix_text(text):
 class PS4ToolUI(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', padding=20, spacing=15, **kwargs)
-
-        self.selected_file_path = ""
 
         # العنوان
         self.title_label = Label(
@@ -45,7 +47,7 @@ class PS4ToolUI(BoxLayout):
 
         # مسار الملف
         self.file_input = TextInput(
-            hint_text=fix_text("اكتب مسار ملف الـ PKG هنا أو اختر ملفاً..."),
+            hint_text=fix_text("اكتب مسار ملف الـ PKG هنا..."),
             font_name=FONT_NAME,
             font_size='14sp',
             multiline=False,
@@ -54,7 +56,7 @@ class PS4ToolUI(BoxLayout):
         )
         self.add_widget(self.file_input)
 
-        # حالة العمل والتقدم
+        # حالة العمل
         self.status_label = Label(
             text=fix_text("الحالة: جاهز للعمل"),
             font_name=FONT_NAME,
@@ -100,7 +102,7 @@ class PS4ToolUI(BoxLayout):
         try:
             total_size = os.path.getsize(file_path)
             part_size = math.ceil(total_size / 4)
-            buffer_size = 64 * 1024 * 1024  # 64MB Buffer
+            buffer_size = 4 * 1024 * 1024  # 4MB Buffer لسرعة وأمان الذاكرة
 
             self.update_status("جاري بدء عملية التقسيم...", 0)
 
@@ -117,14 +119,13 @@ class PS4ToolUI(BoxLayout):
                             dst.write(chunk)
                             bytes_remaining -= len(chunk)
 
-                            # التقدير لشريط التقدم
                             current_pos = src.tell()
                             progress_pct = int((current_pos / total_size) * 100)
                             self.update_status(f"جاري التقسيم: {progress_pct}% (الجزء {i+1}/4)", progress_pct)
 
             self.update_status("تمت عملية التقسيم بنجاح!", 100)
         except Exception as e:
-            self.update_status(f"حدث خطأ أثناء التقسيم: {str(e)}")
+            self.update_status(f"حدث خطأ: {str(e)}")
         finally:
             def _reenable(dt):
                 self.split_btn.disabled = False
@@ -136,11 +137,17 @@ class PS4PKGToolApp(App):
 
     def on_start(self):
         if platform == 'android':
+            Clock.schedule_once(self.request_android_permissions, 1)
+
+    def request_android_permissions(self, dt):
+        try:
             from android.permissions import request_permissions, Permission
             request_permissions([
                 Permission.READ_EXTERNAL_STORAGE,
                 Permission.WRITE_EXTERNAL_STORAGE
             ])
+        except Exception as e:
+            print(f"Permissions error: {e}")
 
 if __name__ == '__main__':
     PS4PKGToolApp().run()
