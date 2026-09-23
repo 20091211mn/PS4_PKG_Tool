@@ -21,12 +21,29 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblldb-dev libffi-dev libreadline-dev libgl1-mesa-dev libgles2-mesa-dev xclip xsel ccache zip unzip openjdk-17-jdk
-          python -m pip install --upgrade "pip<24.1"
-          python -m pip install buildozer cython==0.29.33
+          sudo apt-get install -y \
+            build-essential \
+            libsqlite3-dev \
+            sqlite3 \
+            bzip2 \
+            libbz2-dev \
+            zlib1g-dev \
+            libssl-dev \
+            openssl \
+            libgdbm-dev \
+            libgdbm-compat-dev \
+            liblldb-dev \
+            libffi-dev \
+            libreadline-dev \
+            libgl1-mesa-dev \
+            libgles2-mesa-dev
+
+          python -m pip install --upgrade "pip==24.0.2" "setuptools<70" wheel
+          python -m pip install "buildozer==1.5.0" "python-for-android==2024.1.21" "cython==0.29.33"
 
       - name: Build APK with Buildozer
         run: |
+          rm -rf .buildozer
           yes | buildozer android debug
 
       - name: Upload APK Artifact
