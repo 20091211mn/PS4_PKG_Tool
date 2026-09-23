@@ -7,12 +7,12 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
 
 version = 0.1
-requirements = python3,kivy,arabic_reshaper,python-bidi
+requirements = python3,kivy==2.3.0,arabic_reshaper,python-bidi,android
 
 orientation = portrait
 fullscreen = 0
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,MANAGE_EXTERNAL_STORAGE
-android.api = 31
+android.api = 33
 android.minapi = 21
 
 [buildozer]
