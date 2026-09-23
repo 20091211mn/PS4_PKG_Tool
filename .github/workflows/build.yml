@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
@@ -18,11 +18,16 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Build with Buildozer
-        uses: ArtemisGalactic/buildozer-action@v1.3.0
-        with:
-          command: buildozer android debug
-          buildozer_version: master
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblldb-dev libffi-dev libreadline-dev libgl1-mesa-dev libgles2-mesa-dev xclip xsel ccache zip unzip openjdk-17-jdk
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.33
+
+      - name: Build APK with Buildozer
+        run: |
+          yes | buildozer android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
