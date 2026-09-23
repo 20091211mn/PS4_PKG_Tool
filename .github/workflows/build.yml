@@ -16,14 +16,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblldb-dev libffi-dev libreadline-dev libgl1-mesa-dev libgles2-mesa-dev xclip xsel ccache zip unzip openjdk-17-jdk
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.33
+          python -m pip install --upgrade "pip<24.1"
+          python -m pip install buildozer cython==0.29.33
 
       - name: Build APK with Buildozer
         run: |
