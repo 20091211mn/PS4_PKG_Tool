@@ -7,7 +7,7 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
 
 version = 0.1
-requirements = python3,kivy==2.3.0,arabic_reshaper,python-bidi,android
+requirements = python3,kivy,arabic_reshaper,python-bidi,android
 
 orientation = portrait
 fullscreen = 0
