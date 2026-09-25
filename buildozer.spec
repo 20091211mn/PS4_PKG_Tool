@@ -12,8 +12,9 @@ requirements = python3,kivy,arabic_reshaper,python-bidi,android
 orientation = portrait
 fullscreen = 0
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,MANAGE_EXTERNAL_STORAGE,POST_NOTIFICATIONS
-android.api = 34
+android.api = 33
 android.minapi = 24
+android.ndk = 25b
 
 [buildozer]
 log_level = 2

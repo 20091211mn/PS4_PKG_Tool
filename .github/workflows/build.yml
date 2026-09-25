@@ -26,10 +26,4 @@ jobs:
       env:
         PIP_CONSTRAINT: ${{ github.workspace }}/.github/pip-constraints.txt
       run: |
-        yes | buildozer android debug
-
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: package
-        path: bin/*.apk
+        buildozer android debug
