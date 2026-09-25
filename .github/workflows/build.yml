@@ -16,14 +16,28 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
+
+    - name: Cache Buildozer & Android SDK/NDK
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.buildozer
+          .buildozer
+        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          buildozer-${{ runner.os }}-
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install buildozer cython
 
-    - name: Build APK with Buildozer
+    - name: Accept Android Licenses & Build APK
       env:
         PIP_CONSTRAINT: ${{ github.workspace }}/.github/pip-constraints.txt
       run: |
+        mkdir -p ~/.android
+        touch ~/.android/repositories.cfg
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
         buildozer android debug
