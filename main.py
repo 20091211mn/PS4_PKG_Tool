@@ -12,7 +12,6 @@ from kivy.core.text import LabelBase
 from kivy.clock import Clock
 from kivy.utils import platform
 
-# معالجة النصوص العربية بأمان لمنع الانهيار إذا لم تتوفر المكتبات
 try:
     import arabic_reshaper
     from bidi.algorithm import get_display
@@ -31,7 +30,6 @@ def fix_text(text):
             return text
     return text
 
-# تسجيل الخط إن وجد، وإلا استخدام الخط الافتراضي
 FONT_NAME = 'Roboto'
 font_path = 'Cairo-Regular.ttf'
 if os.path.exists(font_path):
@@ -143,7 +141,7 @@ class PS4PKGToolApp(App):
 
     def on_start(self):
         if platform == 'android':
-            Clock.schedule_once(self.request_android_permissions, 1.5)
+            Clock.schedule_once(self.request_android_permissions, 1.0)
 
     def request_android_permissions(self, dt):
         try:
@@ -153,7 +151,7 @@ class PS4PKGToolApp(App):
                 Permission.WRITE_EXTERNAL_STORAGE
             ])
         except Exception as e:
-            print(f"Permissions request error: {e}")
+            print(f"Android Permission Request Handled: {e}")
 
 if __name__ == '__main__':
     PS4PKGToolApp().run()
