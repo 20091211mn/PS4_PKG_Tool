@@ -32,6 +32,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer cython
 
+    - name: Accept All Android SDK Licenses
+      run: |
+        mkdir -p ~/.android
+        touch ~/.android/repositories.cfg
+        printf 'y\ny\ny\ny\ny\ny\ny\n' | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
     - name: Build APK with Buildozer
       env:
         PIP_CONSTRAINT: ${{ github.workspace }}/.github/pip-constraints.txt
