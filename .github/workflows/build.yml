@@ -12,14 +12,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Java NDK/SDK environment
+    - name: Set up Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
-
-    - name: Setup Android SDK and Accept Licenses
-      uses: android-actions/setup-android@v3
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -35,6 +32,11 @@ jobs:
         key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
         restore-keys: |
           buildozer-${{ runner.os }}-
+
+    - name: Accept Android SDK Licenses & Install Components
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
     - name: Install dependencies
       run: |
