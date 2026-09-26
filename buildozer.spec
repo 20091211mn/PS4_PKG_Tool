@@ -15,6 +15,7 @@ android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,MANAGE_EXTERN
 android.api = 33
 android.minapi = 24
 android.ndk = 25b
+android.accept_sdk_license = True
 
 [buildozer]
 log_level = 2
