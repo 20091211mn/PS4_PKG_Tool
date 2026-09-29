@@ -1,4 +1,4 @@
-name: build
+name: Build Multi-Platform Package
 
 on:
   push:
@@ -12,6 +12,14 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Auto-Bump Version Number
+        run: |
+          CURRENT_VER=$(node -p "require('./package.json').version || '1.0.5'")
+          NEXT_VER=$(node -p "let v='$CURRENT_VER'.split('.'); v[2]=parseInt(v[2]||0)+1; v.join('.')")
+          echo "Building Version: $NEXT_VER"
+          sed -i "s/version=\"[^\"]*\"/version=\"$NEXT_VER\"/g" config.xml
+          echo "NEW_VERSION=$NEXT_VER" >> $GITHUB_ENV
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -50,16 +58,31 @@ jobs:
           cd platforms/android
           gradle wrapper --gradle-version 8.5
 
-      - name: Build Debug APK
+      - name: Build Android Debug APK
         run: cordova build android --debug -- --no-daemon
 
-      - name: Find and Rename APK
+      - name: Prepare Multi-Platform Output Directory
         run: |
+          mkdir -p release_files
           APK_PATH=$(find platforms/android/app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
-          cp "$APK_PATH" ./PS4_PKG_Studio_v1.0.5.apk
+          cp "$APK_PATH" ./release_files/PS4_PKG_Studio_v${{ env.NEW_VERSION }}_Android.apk
+          
+          # إعداد النسخة المخصصة للكمبيوتر (Windows Portable)
+          mkdir -p ./release_files/Windows_Version
+          cp -r www/* ./release_files/Windows_Version/
+          
+          # إعداد حزمة الآيفون (iOS/IPA Web Payload)
+          mkdir -p ./release_files/iOS_Version
+          cp -r www/* ./release_files/iOS_Version/
 
-      - name: Upload Direct APK File
+      - name: Compress All Platforms into Single ZIP
+        run: |
+          cd release_files
+          zip -r "../PS4_PKG_Studio_v${{ env.NEW_VERSION }}_All_Platforms.zip" .
+          cd ..
+
+      - name: Upload Single ZIP Release
         uses: actions/upload-artifact@v4
         with:
-          name: PS4_PKG_Studio_v1.0.5_Android
-          path: PS4_PKG_Studio_v1.0.5.apk
+          name: PS4_PKG_Studio_v${{ env.NEW_VERSION }}_Package
+          path: PS4_PKG_Studio_v${{ env.NEW_VERSION }}_All_Platforms.zip
