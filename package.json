@@ -1,0 +1,16 @@
+{
+  "name": "com.ps4pkg.tool",
+  "displayName": "PS4 PKG Tool",
+  "version": "1.0.0",
+  "description": "PS4 PKG Tool Android App",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "User",
+  "license": "ISC",
+  "dependencies": {
+    "cordova-android": "^12.0.0"
+  }
+}
