@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
-    <title>PS4 PKG Studio v1.0.3</title>
+    <title>PS4 PKG Studio Ultimate</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -12,10 +12,11 @@
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
             --border-color: #334155;
+            --success: #22c55e;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: var(--bg-color); color: var(--text-main); padding: 16px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .app-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px; width: 100%; max-width: 440px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        .app-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px; width: 100%; max-width: 480px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
         .header { text-align: center; margin-bottom: 16px; }
         .header h1 { font-size: 1.5rem; color: var(--accent); font-weight: 800; }
         .badge { display: inline-block; background: #0f172a; color: var(--accent); padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; margin-top: 4px; font-weight: bold; border: 1px solid var(--border-color); }
@@ -48,7 +49,7 @@
 <div class="app-card">
     <div class="header">
         <h1>PS4 PKG Studio</h1>
-        <span class="badge">v1.0.3 Pro Edition</span>
+        <span class="badge">v1.0.5 Ultimate Edition</span>
     </div>
 
     <div class="tabs">
@@ -67,7 +68,7 @@
         <div class="info-card" id="pkgInfo">
             <div>اسم الملف: <span id="infoName">-</span></div>
             <div>الحجم: <span id="infoSize">-</span></div>
-            <div>معرف CUSA (إن وجد): <span id="infoCusa">جاري الفحص...</span></div>
+            <div>معرف اللعبة (CUSA): <span id="infoCusa">جاري القراءة...</span></div>
         </div>
 
         <div class="input-group">
@@ -175,7 +176,6 @@
             document.getElementById('infoName').innerText = file.name;
             document.getElementById('infoSize').innerText = (file.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
             
-            // قراءة رأس الـ PKG لاستخراج CUSA
             const headerBlob = file.slice(0, 2048);
             const arrayBuffer = await headerBlob.arrayBuffer();
             const text = new TextDecoder("utf-8").decode(arrayBuffer);
@@ -189,7 +189,7 @@
 
     joinInput.addEventListener('change', () => { joinBtn.disabled = !joinInput.files.length; });
 
-    const STREAM_CHUNK_SIZE = 16 * 1024 * 1024; // 16MB Buffer
+    const STREAM_CHUNK_SIZE = 16 * 1024 * 1024;
 
     async function runSplit() {
         const file = splitInput.files[0];
@@ -225,7 +225,7 @@
                     progressBar.style.width = percent + '%';
                 });
             }
-            statusText.innerText = 'تم تقسيم الملف وحفظه بنجاح بدون أخطاء!';
+            statusText.innerText = 'تم تقسيم الملف وحفظه بنجاح!';
         } catch (err) {
             statusText.innerText = 'حدث خطأ أثناء التقسيم: ' + err;
         }
