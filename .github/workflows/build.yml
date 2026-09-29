@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Cordova Android APK
 
 on:
   push:
@@ -18,32 +18,26 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
       with:
-        python-version: '3.11'
+        node-version: '20'
 
-    - name: Cache Buildozer
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.buildozer
-          .buildozer
-        key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-        restore-keys: |
-          buildozer-${{ runner.os }}-
-
-    - name: Install dependencies
+    - name: Install Cordova & Dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install buildozer cython
+        npm install -g cordova
+        npm install
 
-    - name: Build APK with Buildozer
+    - name: Add Android Platform
       run: |
-        buildozer android debug
+        cordova platform add android
 
-    - name: Upload APK Artifact
+    - name: Build APK
+      run: |
+        cordova build android --debug
+
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: package
-        path: bin/*.apk
+        name: cordova-apk
+        path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
