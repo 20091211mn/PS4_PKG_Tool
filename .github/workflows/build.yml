@@ -16,24 +16,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
 
-      - name: Setup Java JDK
+      - name: Setup Java JDK 11
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '11'
 
       - name: Install Cordova
-        run: npm install -g cordova
+        run: npm install -g cordova@11.0.0
 
-      - name: Add Android Platform
+      - name: Clean and Add Android Platform
         run: |
-          cordova platform remove android || true
-          cordova platform add android@12.0.0
+          rm -rf platforms/android
+          rm -rf plugins
+          cordova platform add android@10.1.2
 
       - name: Build Debug APK
-        run: cordova build android --debug -- --no-daemon
+        run: cordova build android --debug
 
       - name: Find and Rename APK
         run: |
