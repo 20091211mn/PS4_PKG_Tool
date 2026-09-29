@@ -8,7 +8,8 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: #121212; color: #ffffff; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         .card { background: #1e1e1e; border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: center; }
-        h2 { color: #0088ff; margin-bottom: 20px; font-size: 1.5rem; }
+        h2 { color: #0088ff; margin-bottom: 8px; font-size: 1.5rem; }
+        .version-badge { display: inline-block; background: #2a2a2a; color: #0088ff; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-bottom: 20px; }
         .file-input-container { margin-bottom: 20px; text-align: right; }
         label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #aaa; }
         input[type="file"] { width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #333; border-radius: 8px; color: #fff; }
@@ -18,12 +19,14 @@
         .progress-bar-bg { background: #2a2a2a; border-radius: 8px; height: 16px; overflow: hidden; margin-top: 8px; }
         .progress-bar { background: #0088ff; height: 100%; width: 0%; transition: width 0.1s; }
         .status-text { margin-top: 10px; font-size: 0.85rem; color: #bbb; word-break: break-all; }
+        .footer-info { margin-top: 15px; font-size: 0.75rem; color: #666; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>PS4 PKG Splitter</h2>
+    <div class="version-badge">الإصدار: v1.0.0</div>
     
     <div class="file-input-container">
         <label>اختر ملف الـ PKG:</label>
@@ -37,6 +40,10 @@
             <div class="progress-bar" id="progressBar"></div>
         </div>
         <p class="status-text" id="statusText">جاري المعالجة...</p>
+    </div>
+
+    <div class="footer-info" id="updateNotice">
+        التطبيق متصل بمركز التحديثات تلقائياً
     </div>
 </div>
 
@@ -63,7 +70,6 @@
         fileInput.disabled = true;
         progressArea.style.display = 'block';
 
-        // تقسيم الملف إلى 4 أجزاء متساوية
         const totalParts = 4;
         const chunkSize = Math.ceil(file.size / totalParts);
         const baseName = file.name.replace(/\.pkg$/i, '');
