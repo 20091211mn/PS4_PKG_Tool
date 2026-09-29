@@ -24,6 +24,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Setup Gradle 8.5
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
       - name: Install Android Build Tools 33.0.2
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
@@ -37,15 +42,15 @@ jobs:
           rm -rf platforms plugins
           cordova platform add android@12.0.0
 
-      - name: Patch Gradle XmlParser
+      - name: Patch Gradle XmlParser & Generate Wrapper
         run: |
           find platforms/android -name "*.gradle" -exec sed -i 's/new XmlParser(/new groovy.xml.XmlParser(/g' {} +
           find platforms/android -name "*.gradle" -exec sed -i 's/import groovy.util.XmlParser/import groovy.xml.XmlParser/g' {} +
+          cd platforms/android
+          gradle wrapper --gradle-version 8.5
 
       - name: Build Debug APK
-        run: |
-          sudo rm -rf /usr/share/gradle-*
-          cordova build android --debug -- --no-daemon
+        run: cordova build android --debug -- --no-daemon
 
       - name: Find and Rename APK
         run: |
