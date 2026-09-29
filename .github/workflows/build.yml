@@ -24,15 +24,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Cordova 7.2.3
-        run: npm install -g cordova@7.2.3
+      - name: Install Cordova
+        run: npm install -g cordova@7.1.0
 
       - name: Add Android Platform
         run: |
           rm -rf platforms plugins
           cordova platform add android@9.1.0
 
-      - name: Fix Gradle Compatibility for Cordova 7
+      - name: Fix Gradle Compatibility
         run: |
           cd platforms/android
           sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-7.4-bin.zip/g' gradle/wrapper/gradle-wrapper.properties
