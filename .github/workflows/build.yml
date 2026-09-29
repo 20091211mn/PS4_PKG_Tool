@@ -25,12 +25,11 @@ jobs:
           java-version: '17'
 
       - name: Install Cordova
-        run: npm install -g cordova
+        run: npm install -g cordova@12.0.0
 
-      - name: Clean and Add Android Platform
+      - name: Clean and Setup Android Platform
         run: |
-          rm -rf platforms/android
-          rm -rf plugins
+          rm -rf platforms plugins
           cordova platform add android@12.0.0
 
       - name: Build Debug APK
