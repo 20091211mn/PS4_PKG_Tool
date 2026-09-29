@@ -36,13 +36,14 @@
         .status-text { font-size: 0.8rem; color: var(--text-sub); text-align: center; word-break: break-all; }
         .path-info { margin-top: 15px; font-size: 0.75rem; color: var(--accent); text-align: center; line-height: 1.4; word-break: break-all; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
     </style>
+    <script src="cordova.js"></script>
 </head>
 <body>
 
 <div class="app-card">
     <div class="header">
         <h1>PS4 PKG Studio</h1>
-        <span class="badge">v1.0.0</span>
+        <span class="badge">v1.0.1</span>
     </div>
 
     <div class="tabs">
@@ -55,7 +56,7 @@
             <label>اختر ملف الـ PKG المراد تقسيمه:</label>
             <input type="file" id="splitInput" accept=".pkg">
         </div>
-        <button class="action-btn" id="splitBtn" onclick="runSplit()" disabled>بدء التقسيم (4 أجزاء)</button>
+        <button class="action-btn" id="splitBtn" onclick="runSplit()" disabled>بدء التقسيم وحفظ الأجزاء</button>
     </div>
 
     <div id="joinSection" style="display: none;">
@@ -74,28 +75,17 @@
     </div>
 
     <div class="path-info">
-        مجلد الحفظ الرئيسي:<br><b>Download / PS4_PKG_Tools</b>
+        مكان الحفظ المباشر:<br><b>Internal Storage / Download / PS4_PKG_Tools</b>
     </div>
 </div>
 
 <script>
-    document.addEventListener('deviceready', requestAllStoragePermissions, false);
+    document.addEventListener('deviceready', onDeviceReady, false);
 
-    function requestAllStoragePermissions() {
+    function onDeviceReady() {
         if (window.cordova && cordova.plugins && cordova.plugins.permissions) {
-            var permissions = cordova.plugins.permissions;
-            var list = [
-                permissions.READ_EXTERNAL_STORAGE,
-                permissions.WRITE_EXTERNAL_STORAGE
-            ];
-
-            permissions.requestPermissions(list, function(status) {
-                if (!status.hasPermission) {
-                    alert("يرجى منح صلاحيات التخزين للتمكن من حفظ ملفات الـ PKG");
-                }
-            }, function() {
-                alert("فشل طلب أذونات التخزين");
-            });
+            const permissions = cordova.plugins.permissions;
+            permissions.requestPermission(permissions.WRITE_EXTERNAL_STORAGE, null, null);
         }
     }
 
@@ -139,15 +129,15 @@
                 const blob = file.slice(start, end);
                 const fileName = `${baseName}_part${i + 1}.pkg`;
 
-                statusText.innerText = `جاري كتابة الجزء ${i + 1} من ${totalParts}...`;
-                await saveToDownloadDirectory(blob, fileName);
+                statusText.innerText = `جاري كتابة الجزء ${i + 1} من ${totalParts} إلى الذاكرة...`;
+                await saveFileNative(blob, fileName);
 
                 const percent = Math.round(((i + 1) / totalParts) * 100);
                 progressBar.style.width = percent + '%';
             }
-            statusText.innerText = 'تم حفظ جميع الأجزاء في مجلد Download/PS4_PKG_Tools!';
+            statusText.innerText = 'تم حفظ جميع الأجزاء في مجلد Download/PS4_PKG_Tools بنجاح!';
         } catch (err) {
-            statusText.innerText = 'حدث خطأ أثناء حفظ الملف: ' + err;
+            statusText.innerText = 'حدث خطأ في الحفظ: ' + err;
         }
     }
 
@@ -160,13 +150,13 @@
         const outName = files[0].name.replace(/_part\d+/i, '').replace(/\.pkg$/i, '') + '_merged.pkg';
 
         try {
-            statusText.innerText = 'جاري دمج الملفات وكتابتها...';
+            statusText.innerText = 'جاري الدمج وكتابة الملف إلى الذاكرة...';
             progressBar.style.width = '50%';
 
-            await saveToDownloadDirectory(mergedBlob, outName);
+            await saveFileNative(mergedBlob, outName);
 
             progressBar.style.width = '100%';
-            statusText.innerText = 'تم الدمج والحفظ بنجاح في مجلد Download/PS4_PKG_Tools!';
+            statusText.innerText = 'تم الدمج والحفظ في مجلد Download/PS4_PKG_Tools بنجاح!';
         } catch (err) {
             statusText.innerText = 'حدث خطأ أثناء الدمج: ' + err;
         }
@@ -177,37 +167,25 @@
         progressBar.style.width = '0%';
     }
 
-    function saveToDownloadDirectory(blob, filename) {
+    function saveFileNative(blob, filename) {
         return new Promise((resolve, reject) => {
-            if (window.cordova && cordova.file && window.resolveLocalFileSystemURL) {
+            if (window.cordova && cordova.file) {
                 window.resolveLocalFileSystemURL(cordova.file.externalRootDirectory + "Download/", function(downloadDir) {
                     downloadDir.getDirectory("PS4_PKG_Tools", { create: true }, function(targetDir) {
                         targetDir.getFile(filename, { create: true, exclusive: false }, function(fileEntry) {
                             fileEntry.createWriter(function(fileWriter) {
                                 fileWriter.onwriteend = function() { resolve(); };
-                                fileWriter.onerror = function(e) { reject(JSON.stringify(e)); };
+                                fileWriter.onerror = function(e) { reject("فشل كتابة الملف"); };
                                 fileWriter.write(blob);
                             }, reject);
                         }, reject);
                     }, reject);
                 }, function(err) {
-                    fallbackDownload(blob, filename).then(resolve);
+                    reject("فشل الوصول لمجلد Download");
                 });
             } else {
-                fallbackDownload(blob, filename).then(resolve);
+                reject("إضافة Cordova File غير متوفرة");
             }
-        });
-    }
-
-    function fallbackDownload(blob, filename) {
-        return new Promise((resolve) => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(resolve, 800);
         });
     }
 </script>
