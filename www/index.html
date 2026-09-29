@@ -32,7 +32,7 @@
         
         .status-box { margin-top: 20px; display: none; background: #0f172a; border-radius: 12px; padding: 16px; border: 1px solid #334155; }
         .progress-bar-bg { background: #334155; height: 10px; border-radius: 9999px; overflow: hidden; margin-bottom: 10px; }
-        .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width 0.2s; }
+        .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width 0.1s; }
         .status-text { font-size: 0.8rem; color: var(--text-sub); text-align: center; word-break: break-all; }
         .path-info { margin-top: 15px; font-size: 0.75rem; color: var(--accent); text-align: center; line-height: 1.4; word-break: break-all; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
     </style>
@@ -43,7 +43,7 @@
 <div class="app-card">
     <div class="header">
         <h1>PS4 PKG Studio</h1>
-        <span class="badge">v1.0.1</span>
+        <span class="badge">v1.0.2</span>
     </div>
 
     <div class="tabs">
@@ -56,7 +56,7 @@
             <label>اختر ملف الـ PKG المراد تقسيمه:</label>
             <input type="file" id="splitInput" accept=".pkg">
         </div>
-        <button class="action-btn" id="splitBtn" onclick="runSplit()" disabled>بدء التقسيم وحفظ الأجزاء</button>
+        <button class="action-btn" id="splitBtn" onclick="runSplit()" disabled>بدء التقسيم السريع</button>
     </div>
 
     <div id="joinSection" style="display: none;">
@@ -64,7 +64,7 @@
             <label>اختر جميع الأجزاء (.pkg):</label>
             <input type="file" id="joinInput" accept=".pkg" multiple>
         </div>
-        <button class="action-btn" id="joinBtn" onclick="runJoin()" disabled>بدء دمج الأجزاء</button>
+        <button class="action-btn" id="joinBtn" onclick="runJoin()" disabled>بدء الدمج السريع</button>
     </div>
 
     <div class="status-box" id="statusBox">
@@ -75,7 +75,7 @@
     </div>
 
     <div class="path-info">
-        مكان الحفظ المباشر:<br><b>Internal Storage / Download / PS4_PKG_Tools</b>
+        مسار الحفظ المباشر السريع:<br><b>Download / PS4_PKG_Tools</b>
     </div>
 </div>
 
@@ -113,31 +113,34 @@
     splitInput.addEventListener('change', () => { splitBtn.disabled = !splitInput.files.length; });
     joinInput.addEventListener('change', () => { joinBtn.disabled = !joinInput.files.length; });
 
+    const STREAM_CHUNK_SIZE = 16 * 1024 * 1024; // 16MB التدفق لتفادي اللاق
+
     async function runSplit() {
         const file = splitInput.files[0];
         if (!file) return;
 
         showStatus();
         const totalParts = 4;
-        const chunkSize = Math.ceil(file.size / totalParts);
+        const partSize = Math.ceil(file.size / totalParts);
         const baseName = file.name.replace(/\.pkg$/i, '');
 
         try {
             for (let i = 0; i < totalParts; i++) {
-                const start = i * chunkSize;
-                const end = Math.min(start + chunkSize, file.size);
-                const blob = file.slice(start, end);
-                const fileName = `${baseName}_part${i + 1}.pkg`;
+                const partStart = i * partSize;
+                const partEnd = Math.min(partStart + partSize, file.size);
+                const partFileName = `${baseName}_part${i + 1}.pkg`;
 
-                statusText.innerText = `جاري كتابة الجزء ${i + 1} من ${totalParts} إلى الذاكرة...`;
-                await saveFileNative(blob, fileName);
+                statusText.innerText = `جاري كتابة الجزء ${i + 1} من ${totalParts}...`;
 
-                const percent = Math.round(((i + 1) / totalParts) * 100);
-                progressBar.style.width = percent + '%';
+                await writeStreamedToFile(file, partStart, partEnd, partFileName, (writtenBytes) => {
+                    const currentTotalBytes = partStart + writtenBytes;
+                    const percent = Math.round((currentTotalBytes / file.size) * 100);
+                    progressBar.style.width = percent + '%';
+                });
             }
-            statusText.innerText = 'تم حفظ جميع الأجزاء في مجلد Download/PS4_PKG_Tools بنجاح!';
+            statusText.innerText = 'تم تقسيم الحجم الكبير بنجاح وبسرعة عالية!';
         } catch (err) {
-            statusText.innerText = 'حدث خطأ في الحفظ: ' + err;
+            statusText.innerText = 'حدث خطأ: ' + err;
         }
     }
 
@@ -146,17 +149,27 @@
         if (!files.length) return;
 
         showStatus();
-        const mergedBlob = new Blob(files, { type: 'application/octet-stream' });
+        const totalSize = files.reduce((acc, f) => acc + f.size, 0);
         const outName = files[0].name.replace(/_part\d+/i, '').replace(/\.pkg$/i, '') + '_merged.pkg';
 
         try {
-            statusText.innerText = 'جاري الدمج وكتابة الملف إلى الذاكرة...';
-            progressBar.style.width = '50%';
+            let totalWrittenOverall = 0;
 
-            await saveFileNative(mergedBlob, outName);
+            for (let fIndex = 0; fIndex < files.length; fIndex++) {
+                const currentFile = files[fIndex];
+                statusText.innerText = `جاري دمج الجزء ${fIndex + 1} من ${files.length}...`;
+
+                const isAppend = (fIndex > 0);
+                await writeStreamedToFile(currentFile, 0, currentFile.size, outName, (writtenBytes) => {
+                    const percent = Math.round(((totalWrittenOverall + writtenBytes) / totalSize) * 100);
+                    progressBar.style.width = percent + '%';
+                }, isAppend);
+
+                totalWrittenOverall += currentFile.size;
+            }
 
             progressBar.style.width = '100%';
-            statusText.innerText = 'تم الدمج والحفظ في مجلد Download/PS4_PKG_Tools بنجاح!';
+            statusText.innerText = 'تم دمج جميع الأجزاء الضخمة بنجاح وسرعة!';
         } catch (err) {
             statusText.innerText = 'حدث خطأ أثناء الدمج: ' + err;
         }
@@ -167,25 +180,49 @@
         progressBar.style.width = '0%';
     }
 
-    function saveFileNative(blob, filename) {
+    function writeStreamedToFile(sourceFile, startPos, endPos, targetFileName, onProgress, append = false) {
         return new Promise((resolve, reject) => {
-            if (window.cordova && cordova.file) {
-                window.resolveLocalFileSystemURL(cordova.file.externalRootDirectory + "Download/", function(downloadDir) {
-                    downloadDir.getDirectory("PS4_PKG_Tools", { create: true }, function(targetDir) {
-                        targetDir.getFile(filename, { create: true, exclusive: false }, function(fileEntry) {
-                            fileEntry.createWriter(function(fileWriter) {
-                                fileWriter.onwriteend = function() { resolve(); };
-                                fileWriter.onerror = function(e) { reject("فشل كتابة الملف"); };
-                                fileWriter.write(blob);
-                            }, reject);
+            if (!window.cordova || !cordova.file) {
+                return reject("إضافة Cordova File غير موجودة");
+            }
+
+            window.resolveLocalFileSystemURL(cordova.file.externalRootDirectory + "Download/", function(downloadDir) {
+                downloadDir.getDirectory("PS4_PKG_Tools", { create: true }, function(targetDir) {
+                    targetDir.getFile(targetFileName, { create: true, exclusive: false }, function(fileEntry) {
+                        fileEntry.createWriter(function(fileWriter) {
+                            let currentOffset = startPos;
+
+                            if (append) {
+                                fileWriter.seek(fileWriter.length);
+                            }
+
+                            function writeNextChunk() {
+                                if (currentOffset >= endPos) {
+                                    resolve();
+                                    return;
+                                }
+
+                                const chunkEnd = Math.min(currentOffset + STREAM_CHUNK_SIZE, endPos);
+                                const chunkBlob = sourceFile.slice(currentOffset, chunkEnd);
+
+                                fileWriter.onwriteend = function() {
+                                    currentOffset = chunkEnd;
+                                    onProgress(currentOffset - startPos);
+                                    writeNextChunk();
+                                };
+
+                                fileWriter.onerror = function(e) {
+                                    reject("خطأ أثناء الكتابة السريعة");
+                                };
+
+                                fileWriter.write(chunkBlob);
+                            }
+
+                            writeNextChunk();
                         }, reject);
                     }, reject);
-                }, function(err) {
-                    reject("فشل الوصول لمجلد Download");
-                });
-            } else {
-                reject("إضافة Cordova File غير متوفرة");
-            }
+                }, reject);
+            }, reject);
         });
     }
 </script>

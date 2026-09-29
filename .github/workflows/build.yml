@@ -1,4 +1,4 @@
-name: Build Android APK v1.0.1
+name: Build Android APK v1.0.2
 
 on:
   push:
@@ -36,10 +36,10 @@ jobs:
       - name: Find and Rename APK
         run: |
           APK_PATH=$(find platforms/android/app/build/outputs/apk/debug/ -name "*.apk" | head -n 1)
-          cp "$APK_PATH" ./PS4_PKG_Studio_v1.0.1.apk
+          cp "$APK_PATH" ./PS4_PKG_Studio_v1.0.2.apk
 
       - name: Upload Direct APK File
         uses: actions/upload-artifact@v4
         with:
-          name: PS4_PKG_Studio_v1.0.1
-          path: PS4_PKG_Studio_v1.0.1.apk
+          name: PS4_PKG_Studio_v1.0.2
+          path: PS4_PKG_Studio_v1.0.2.apk
