@@ -9,7 +9,6 @@
             --bg-color: #0f172a;
             --card-bg: #1e293b;
             --accent: #38bdf8;
-            --accent-hover: #0284c7;
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
         }
@@ -35,8 +34,7 @@
         .progress-bar-bg { background: #334155; height: 10px; border-radius: 9999px; overflow: hidden; margin-bottom: 10px; }
         .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width 0.2s; }
         .status-text { font-size: 0.8rem; color: var(--text-sub); text-align: center; word-break: break-all; }
-        
-        .path-info { margin-top: 15px; font-size: 0.7rem; color: #64748b; text-align: center; line-height: 1.4; }
+        .path-info { margin-top: 15px; font-size: 0.75rem; color: #64748b; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -52,7 +50,6 @@
         <button class="tab-btn" onclick="switchTab('join')">تجميع (Join)</button>
     </div>
 
-    <!-- قسم التقسيم -->
     <div id="splitSection">
         <div class="input-group">
             <label>اختر ملف الـ PKG المراد تقسيمه:</label>
@@ -61,7 +58,6 @@
         <button class="action-btn" id="splitBtn" onclick="runSplit()" disabled>بدء التقسيم (4 أجزاء)</button>
     </div>
 
-    <!-- قسم التجميع -->
     <div id="joinSection" style="display: none;">
         <div class="input-group">
             <label>اختر جميع الأجزاء (.pkg):</label>
@@ -78,18 +74,18 @@
     </div>
 
     <div class="path-info">
-        يتم حفظ الملفات في المجلد الرئيسي:<br><b>PS4_PKG_Tools</b>
+        مسار المحفوظات الفعلي:<br><b id="outPath">Internal Storage / Download / PS4_PKG_Tools</b>
     </div>
 </div>
 
 <script>
-    document.addEventListener('deviceready', requestPermissions, false);
+    document.addEventListener('deviceready', onDeviceReady, false);
 
-    function requestPermissions() {
+    function onDeviceReady() {
         if (window.cordova && cordova.plugins && cordova.plugins.permissions) {
             var permissions = cordova.plugins.permissions;
-            permissions.requestPermission(permissions.WRITE_EXTERNAL_STORAGE, null, null);
-            permissions.requestPermission(permissions.READ_EXTERNAL_STORAGE, null, null);
+            permissions.requestPermission(permissions.WRITE_EXTERNAL_STORAGE);
+            permissions.requestPermission(permissions.READ_EXTERNAL_STORAGE);
         }
     }
 
@@ -126,20 +122,23 @@
         const chunkSize = Math.ceil(file.size / totalParts);
         const baseName = file.name.replace(/\.pkg$/i, '');
 
-        for (let i = 0; i < totalParts; i++) {
-            const start = i * chunkSize;
-            const end = Math.min(start + chunkSize, file.size);
-            const blob = file.slice(start, end);
-            const fileName = `${baseName}_part${i + 1}.pkg`;
+        try {
+            for (let i = 0; i < totalParts; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize, file.size);
+                const blob = file.slice(start, end);
+                const fileName = `${baseName}_part${i + 1}.pkg`;
 
-            statusText.innerText = `جاري حفظ الجزء ${i + 1} من ${totalParts}...`;
-            await downloadBlob(blob, fileName);
+                statusText.innerText = `جاري كتابة الجزء ${i + 1} من ${totalParts}...`;
+                await saveFileToNativeStorage(blob, fileName);
 
-            const percent = Math.round(((i + 1) / totalParts) * 100);
-            progressBar.style.width = percent + '%';
+                const percent = Math.round(((i + 1) / totalParts) * 100);
+                progressBar.style.width = percent + '%';
+            }
+            statusText.innerText = 'تم حفظ الأجزاء بنجاح في مجلد Downloads/PS4_PKG_Tools!';
+        } catch (err) {
+            statusText.innerText = 'حدث خطأ أثناء كتابة الملفات: ' + err;
         }
-
-        statusText.innerText = 'تم اكتكال التقسيم وحفظ الأجزاء بنجاح!';
     }
 
     async function runJoin() {
@@ -150,13 +149,17 @@
         const mergedBlob = new Blob(files, { type: 'application/octet-stream' });
         const outName = files[0].name.replace(/_part\d+/i, '').replace(/\.pkg$/i, '') + '_merged.pkg';
 
-        statusText.innerText = 'جاري تجميع ودمج الملفات...';
-        progressBar.style.width = '50%';
+        try {
+            statusText.innerText = 'جاري دمج وكتابة الملف الكامل...';
+            progressBar.style.width = '50%';
 
-        await downloadBlob(mergedBlob, outName);
+            await saveFileToNativeStorage(mergedBlob, outName);
 
-        progressBar.style.width = '100%';
-        statusText.innerText = 'تم دمج وتجميع الملف بنجاح!';
+            progressBar.style.width = '100%';
+            statusText.innerText = 'تم دمج وحفظ الملف النهائي بنجاح!';
+        } catch (err) {
+            statusText.innerText = 'حدث خطأ أثناء الدمج: ' + err;
+        }
     }
 
     function showStatus() {
@@ -164,7 +167,34 @@
         progressBar.style.width = '0%';
     }
 
-    function downloadBlob(blob, filename) {
+    function saveFileToNativeStorage(blob, filename) {
+        return new Promise((resolve, reject) => {
+            // استخدام Native File System بدلاً من روابط التنزيل الشفاف
+            const targetDir = (window.cordova && cordova.file) 
+                ? cordova.file.externalRootDirectory + "Download/PS4_PKG_Tools/" 
+                : null;
+
+            if (targetDir && window.resolveLocalFileSystemURL) {
+                window.resolveLocalFileSystemURL(cordova.file.externalRootDirectory + "Download/", function(dirEntry) {
+                    dirEntry.getDirectory("PS4_PKG_Tools", { create: true }, function(subDir) {
+                        subDir.getFile(filename, { create: true, exclusive: false }, function(fileEntry) {
+                            fileEntry.createWriter(function(fileWriter) {
+                                fileWriter.onwriteend = function() { resolve(); };
+                                fileWriter.onerror = function(e) { reject(e.toString()); };
+                                fileWriter.write(blob);
+                            }, reject);
+                        }, reject);
+                    }, reject);
+                }, function() {
+                    fallbackDownload(blob, filename).then(resolve);
+                });
+            } else {
+                fallbackDownload(blob, filename).then(resolve);
+            }
+        });
+    }
+
+    function fallbackDownload(blob, filename) {
         return new Promise((resolve) => {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
