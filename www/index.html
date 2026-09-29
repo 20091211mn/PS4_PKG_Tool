@@ -3,73 +3,125 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
-    <title>PS4 PKG Splitter</title>
+    <title>PS4 PKG Studio</title>
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-        body { background-color: #121212; color: #ffffff; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        .card { background: #1e1e1e; border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: center; }
-        h2 { color: #0088ff; margin-bottom: 8px; font-size: 1.5rem; }
-        .version-badge { display: inline-block; background: #2a2a2a; color: #0088ff; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-bottom: 20px; }
-        .file-input-container { margin-bottom: 20px; text-align: right; }
-        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #aaa; }
-        input[type="file"] { width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #333; border-radius: 8px; color: #fff; }
-        .btn { background: #0088ff; color: white; border: none; padding: 14px 20px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-        .btn:disabled { background: #444; color: #888; cursor: not-allowed; }
-        .progress-container { margin-top: 20px; display: none; }
-        .progress-bar-bg { background: #2a2a2a; border-radius: 8px; height: 16px; overflow: hidden; margin-top: 8px; }
-        .progress-bar { background: #0088ff; height: 100%; width: 0%; transition: width 0.1s; }
-        .status-text { margin-top: 10px; font-size: 0.85rem; color: #bbb; word-break: break-all; }
-        .footer-info { margin-top: 15px; font-size: 0.75rem; color: #666; }
+        body { background: var(--bg-color); color: var(--text-main); padding: 16px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .app-card { background: var(--card-bg); border: 1px solid #334155; border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { font-size: 1.6rem; color: var(--accent); font-weight: 800; }
+        .badge { display: inline-block; background: #0f172a; color: var(--accent); padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; margin-top: 6px; font-weight: bold; border: 1px solid #334155; }
+        
+        .tabs { display: flex; background: #0f172a; padding: 4px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+        .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-sub); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .tab-btn.active { background: var(--card-bg); color: var(--accent); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        
+        .input-group { margin-bottom: 16px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-sub); margin-bottom: 8px; font-weight: 600; }
+        input[type="file"] { width: 100%; padding: 12px; background: #0f172a; border: 1px dashed #475569; border-radius: 12px; color: var(--text-main); font-size: 0.85rem; }
+        
+        .action-btn { width: 100%; background: var(--accent); color: #0f172a; border: none; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 1rem; cursor: pointer; transition: 0.2s; margin-top: 8px; }
+        .action-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+        
+        .status-box { margin-top: 20px; display: none; background: #0f172a; border-radius: 12px; padding: 16px; border: 1px solid #334155; }
+        .progress-bar-bg { background: #334155; height: 10px; border-radius: 9999px; overflow: hidden; margin-bottom: 10px; }
+        .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width 0.2s; }
+        .status-text { font-size: 0.8rem; color: var(--text-sub); text-align: center; word-break: break-all; }
+        
+        .path-info { margin-top: 15px; font-size: 0.7rem; color: #64748b; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>PS4 PKG Splitter</h2>
-    <div class="version-badge">الإصدار: v1.0.0</div>
-    
-    <div class="file-input-container">
-        <label>اختر ملف الـ PKG:</label>
-        <input type="file" id="pkgFile" accept=".pkg">
+<div class="app-card">
+    <div class="header">
+        <h1>PS4 PKG Studio</h1>
+        <span class="badge">v1.0.0</span>
     </div>
 
-    <button class="btn" id="splitBtn" onclick="processPKG()" disabled>بدء تجزئة الملف</button>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('split')">تقسيم (Split)</button>
+        <button class="tab-btn" onclick="switchTab('join')">تجميع (Join)</button>
+    </div>
 
-    <div class="progress-container" id="progressArea">
+    <!-- قسم التقسيم -->
+    <div id="splitSection">
+        <div class="input-group">
+            <label>اختر ملف الـ PKG المراد تقسيمه:</label>
+            <input type="file" id="splitInput" accept=".pkg">
+        </div>
+        <button class="action-btn" id="splitBtn" onclick="runSplit()" disabled>بدء التقسيم (4 أجزاء)</button>
+    </div>
+
+    <!-- قسم التجميع -->
+    <div id="joinSection" style="display: none;">
+        <div class="input-group">
+            <label>اختر جميع الأجزاء (.pkg):</label>
+            <input type="file" id="joinInput" accept=".pkg" multiple>
+        </div>
+        <button class="action-btn" id="joinBtn" onclick="runJoin()" disabled>بدء دمج الأجزاء</button>
+    </div>
+
+    <div class="status-box" id="statusBox">
         <div class="progress-bar-bg">
             <div class="progress-bar" id="progressBar"></div>
         </div>
-        <p class="status-text" id="statusText">جاري المعالجة...</p>
+        <p class="status-text" id="statusText">جاهز للبدء...</p>
     </div>
 
-    <div class="footer-info" id="updateNotice">
-        التطبيق متصل بمركز التحديثات تلقائياً
+    <div class="path-info">
+        يتم حفظ الملفات في المجلد الرئيسي:<br><b>PS4_PKG_Tools</b>
     </div>
 </div>
 
 <script>
-    const fileInput = document.getElementById('pkgFile');
+    document.addEventListener('deviceready', requestPermissions, false);
+
+    function requestPermissions() {
+        if (window.cordova && cordova.plugins && cordova.plugins.permissions) {
+            var permissions = cordova.plugins.permissions;
+            permissions.requestPermission(permissions.WRITE_EXTERNAL_STORAGE, null, null);
+            permissions.requestPermission(permissions.READ_EXTERNAL_STORAGE, null, null);
+        }
+    }
+
+    function switchTab(mode) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        if (mode === 'split') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('splitSection').style.display = 'block';
+            document.getElementById('joinSection').style.display = 'none';
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('splitSection').style.display = 'none';
+            document.getElementById('joinSection').style.display = 'block';
+        }
+    }
+
+    const splitInput = document.getElementById('splitInput');
     const splitBtn = document.getElementById('splitBtn');
-    const progressArea = document.getElementById('progressArea');
+    const joinInput = document.getElementById('joinInput');
+    const joinBtn = document.getElementById('joinBtn');
+    const statusBox = document.getElementById('statusBox');
     const progressBar = document.getElementById('progressBar');
     const statusText = document.getElementById('statusText');
 
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            splitBtn.disabled = false;
-        } else {
-            splitBtn.disabled = true;
-        }
-    });
+    splitInput.addEventListener('change', () => { splitBtn.disabled = !splitInput.files.length; });
+    joinInput.addEventListener('change', () => { joinBtn.disabled = !joinInput.files.length; });
 
-    async function processPKG() {
-        const file = fileInput.files[0];
+    async function runSplit() {
+        const file = splitInput.files[0];
         if (!file) return;
 
-        splitBtn.disabled = true;
-        fileInput.disabled = true;
-        progressArea.style.display = 'block';
-
+        showStatus();
         const totalParts = 4;
         const chunkSize = Math.ceil(file.size / totalParts);
         const baseName = file.name.replace(/\.pkg$/i, '');
@@ -78,22 +130,41 @@
             const start = i * chunkSize;
             const end = Math.min(start + chunkSize, file.size);
             const blob = file.slice(start, end);
+            const fileName = `${baseName}_part${i + 1}.pkg`;
 
-            const partName = `${baseName}_part${i + 1}.pkg`;
-            statusText.innerText = `جاري معالجة الجزء ${i + 1} من ${totalParts}...`;
-
-            await saveChunk(blob, partName);
+            statusText.innerText = `جاري حفظ الجزء ${i + 1} من ${totalParts}...`;
+            await downloadBlob(blob, fileName);
 
             const percent = Math.round(((i + 1) / totalParts) * 100);
             progressBar.style.width = percent + '%';
         }
 
-        statusText.innerText = 'تمت تجزئة الملف وحفظ الأجزاء بنجاح!';
-        splitBtn.disabled = false;
-        fileInput.disabled = false;
+        statusText.innerText = 'تم اكتكال التقسيم وحفظ الأجزاء بنجاح!';
     }
 
-    function saveChunk(blob, filename) {
+    async function runJoin() {
+        const files = Array.from(joinInput.files).sort((a, b) => a.name.localeCompare(b.name));
+        if (!files.length) return;
+
+        showStatus();
+        const mergedBlob = new Blob(files, { type: 'application/octet-stream' });
+        const outName = files[0].name.replace(/_part\d+/i, '').replace(/\.pkg$/i, '') + '_merged.pkg';
+
+        statusText.innerText = 'جاري تجميع ودمج الملفات...';
+        progressBar.style.width = '50%';
+
+        await downloadBlob(mergedBlob, outName);
+
+        progressBar.style.width = '100%';
+        statusText.innerText = 'تم دمج وتجميع الملف بنجاح!';
+    }
+
+    function showStatus() {
+        statusBox.style.display = 'block';
+        progressBar.style.width = '0%';
+    }
+
+    function downloadBlob(blob, filename) {
         return new Promise((resolve) => {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -101,7 +172,7 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            setTimeout(resolve, 500);
+            setTimeout(resolve, 800);
         });
     }
 </script>
