@@ -1,16 +1,104 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
-    <title>PS4 PKG Tool</title>
+    <title>PS4 PKG Splitter</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #121212; color: #fff; }
-        h1 { color: #0088ff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #121212; color: #ffffff; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        .card { background: #1e1e1e; border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); text-align: center; }
+        h2 { color: #0088ff; margin-bottom: 20px; font-size: 1.5rem; }
+        .file-input-container { margin-bottom: 20px; text-align: right; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #aaa; }
+        input[type="file"] { width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #333; border-radius: 8px; color: #fff; }
+        .btn { background: #0088ff; color: white; border: none; padding: 14px 20px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+        .progress-container { margin-top: 20px; display: none; }
+        .progress-bar-bg { background: #2a2a2a; border-radius: 8px; height: 16px; overflow: hidden; margin-top: 8px; }
+        .progress-bar { background: #0088ff; height: 100%; width: 0%; transition: width 0.1s; }
+        .status-text { margin-top: 10px; font-size: 0.85rem; color: #bbb; word-break: break-all; }
     </style>
 </head>
 <body>
-    <h1>PS4 PKG Tool</h1>
-    <p>Cordova App is Running Successfully!</p>
+
+<div class="card">
+    <h2>PS4 PKG Splitter</h2>
+    
+    <div class="file-input-container">
+        <label>اختر ملف الـ PKG:</label>
+        <input type="file" id="pkgFile" accept=".pkg">
+    </div>
+
+    <button class="btn" id="splitBtn" onclick="processPKG()" disabled>بدء تجزئة الملف</button>
+
+    <div class="progress-container" id="progressArea">
+        <div class="progress-bar-bg">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <p class="status-text" id="statusText">جاري المعالجة...</p>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('pkgFile');
+    const splitBtn = document.getElementById('splitBtn');
+    const progressArea = document.getElementById('progressArea');
+    const progressBar = document.getElementById('progressBar');
+    const statusText = document.getElementById('statusText');
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            splitBtn.disabled = false;
+        } else {
+            splitBtn.disabled = true;
+        }
+    });
+
+    async function processPKG() {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        splitBtn.disabled = true;
+        fileInput.disabled = true;
+        progressArea.style.display = 'block';
+
+        // تقسيم الملف إلى 4 أجزاء متساوية
+        const totalParts = 4;
+        const chunkSize = Math.ceil(file.size / totalParts);
+        const baseName = file.name.replace(/\.pkg$/i, '');
+
+        for (let i = 0; i < totalParts; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, file.size);
+            const blob = file.slice(start, end);
+
+            const partName = `${baseName}_part${i + 1}.pkg`;
+            statusText.innerText = `جاري معالجة الجزء ${i + 1} من ${totalParts}...`;
+
+            await saveChunk(blob, partName);
+
+            const percent = Math.round(((i + 1) / totalParts) * 100);
+            progressBar.style.width = percent + '%';
+        }
+
+        statusText.innerText = 'تمت تجزئة الملف وحفظ الأجزاء بنجاح!';
+        splitBtn.disabled = false;
+        fileInput.disabled = false;
+    }
+
+    function saveChunk(blob, filename) {
+        return new Promise((resolve) => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(resolve, 500);
+        });
+    }
+</script>
+
 </body>
 </html>
