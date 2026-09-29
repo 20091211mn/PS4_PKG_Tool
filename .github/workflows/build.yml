@@ -34,8 +34,7 @@ jobs:
 
       - name: Fix Gradle Compatibility
         run: |
-          cd platforms/android
-          sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-7.4-bin.zip/g' gradle/wrapper/gradle-wrapper.properties
+          find platforms/android -name "gradle-wrapper.properties" -exec sed -i 's/distributionUrl=.*/distributionUrl=https\\:\/\/services.gradle.org\/distributions\/gradle-7.4-bin.zip/g' {} +
 
       - name: Build Debug APK
         run: cordova build android --debug -- --no-daemon
