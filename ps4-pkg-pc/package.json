@@ -1,0 +1,13 @@
+{
+  "name": "ps4-pkg-studio-pc",
+  "version": "1.0.4",
+  "description": "PS4 PKG Studio for Windows",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0"
+  }
+}

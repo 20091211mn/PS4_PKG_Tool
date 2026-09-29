@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>PS4 PKG Studio - PC Edition v1.0.4</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --border: #334155; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 24px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; max-width: 550px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { color: var(--accent); font-size: 1.8rem; }
+        .badge { background: #0f172a; color: var(--accent); border: 1px solid var(--border); padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
+        
+        .btn { background: var(--accent); color: #0f172a; border: none; padding: 10px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        .btn:disabled { background: #334155; color: #64748b; }
+        .file-path { background: #0f172a; border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-size: 0.85rem; word-break: break-all; margin-top: 6px; }
+        
+        .status-box { margin-top: 20px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: none; }
+        .progress { background: #334155; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 8px; }
+        .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width 0.1s; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">
+        <h1>PS4 PKG Studio</h1>
+        <span class="badge">v1.0.4 Windows Edition</span>
+    </div>
+
+    <div>
+        <label>اختر ملف الـ PKG من الكمبيوتر:</label>
+        <button class="btn" onclick="chooseFile()">استعراض الملفات...</button>
+        <div class="file-path" id="filePath">لم يتم اختيار ملف بعد</div>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <label>اختر مجلد الحفظ (مثلاً وحدة الـ USB):</label>
+        <button class="btn" onclick="chooseFolder()">اختيار مجلد...</button>
+        <div class="file-path" id="folderPath">لم يتم اختيار مجلد</div>
+    </div>
+
+    <button class="btn" id="startBtn" style="margin-top: 20px; font-size: 1.1rem;" onclick="processSplit()" disabled>بدء التقسيم المباشر للكمبيوتر</button>
+
+    <div class="status-box" id="statusBox">
+        <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+        <div style="font-size: 0.8rem; text-align: center;" id="statusText">جاهز...</div>
+    </div>
+</div>
+
+<script>
+    const { ipcRenderer } = require('electron');
+    const fs = require('fs');
+    const path = require('path');
+
+    let selectedFilePath = '';
+    let selectedFolderPath = '';
+
+    async function chooseFile() {
+        const filePath = await ipcRenderer.invoke('select-file');
+        if (filePath) {
+            selectedFilePath = filePath;
+            document.getElementById('filePath').innerText = filePath;
+            checkReady();
+        }
+    }
+
+    async function chooseFolder() {
+        const folderPath = await ipcRenderer.invoke('select-folder');
+        if (folderPath) {
+            selectedFolderPath = folderPath;
+            document.getElementById('folderPath').innerText = folderPath;
+            checkReady();
+        }
+    }
+
+    function checkReady() {
+        document.getElementById('startBtn').disabled = !(selectedFilePath && selectedFolderPath);
+    }
+
+    async function processSplit() {
+        document.getElementById('statusBox').style.display = 'block';
+        const stats = fs.statSync(selectedFilePath);
+        const totalSize = stats.size;
+        const totalParts = 4;
+        const partSize = Math.ceil(totalSize / totalParts);
+        const baseName = path.basename(selectedFilePath, '.pkg');
+
+        const fd = fs.openSync(selectedFilePath, 'r');
+        const bufferSize = 16 * 1024 * 1024; // 16MB Buffer
+        const buffer = Buffer.alloc(bufferSize);
+
+        for (let i = 0; i < totalParts; i++) {
+            const partFileName = path.join(selectedFolderPath, `${baseName}_part${i + 1}.pkg`);
+            const outFd = fs.openSync(partFileName, 'w');
+            
+            let bytesToWrite = (i === totalParts - 1) ? (totalSize - (i * partSize)) : partSize;
+            let writtenForPart = 0;
+
+            while (writtenForPart < bytesToWrite) {
+                const toRead = Math.min(bufferSize, bytesToWrite - writtenForPart);
+                const bytesRead = fs.readSync(fd, buffer, 0, toRead, null);
+                fs.writeSync(outFd, buffer, 0, bytesRead);
+                writtenForPart += bytesRead;
+
+                const overallWritten = (i * partSize) + writtenForPart;
+                const percent = Math.round((overallWritten / totalSize) * 100);
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('statusText').innerText = `جاري كتابة الجزء ${i + 1} من ${totalParts}... (${percent}%)`;
+            }
+            fs.closeSync(outFd);
+        }
+        fs.closeSync(fd);
+
+        document.getElementById('statusText').innerText = 'تم تقسيم الملف وتصديره على الكمبيوتر بنجاح!';
+    }
+</script>
+
+</body>
+</html>
