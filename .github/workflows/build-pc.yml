@@ -1,4 +1,4 @@
-name: Build Windows App v1.0.4
+name: Build Windows App v1.0.5
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install Dependencies and Build EXE
         run: |
@@ -27,5 +27,5 @@ jobs:
       - name: Upload Windows Executable
         uses: actions/upload-artifact@v4
         with:
-          name: PS4_PKG_Studio_v1.0.4_Windows
+          name: PS4_PKG_Studio_v1.0.5_Windows
           path: ps4-pkg-pc/dist/*.exe

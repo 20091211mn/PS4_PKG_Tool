@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.ps4pkg.tool" version="1.0.3" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+<widget id="com.ps4pkg.tool" version="1.0.5" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
     <name>PS4 PKG Studio</name>
-    <description>PS4 PKG Management & Direct Network Deployment Tool</description>
+    <description>PS4 PKG Management Tool</description>
     <author email="dev@example.com" href="https://cordova.io">
         Developer
     </author>
@@ -13,6 +13,8 @@
     <plugin name="cordova-plugin-android-permissions" spec="^1.1.5" />
 
     <platform name="android">
+        <preference name="android-minSdkVersion" value="24" />
+        <preference name="android-targetSdkVersion" value="33" />
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
             <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
