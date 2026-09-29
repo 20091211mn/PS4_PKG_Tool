@@ -24,20 +24,25 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Install Android Build Tools 33.0.2
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33"
+
       - name: Install Cordova
         run: npm install -g cordova
 
-      - name: Setup Cordova Android Platform
+      - name: Add Cordova Android Platform
         run: |
           rm -rf platforms/android
           cordova platform add android@12.0.0
 
-      - name: Fix XmlParser in Cordova Gradle Scripts
+      - name: Patch Cordova Gradle Scripts
         run: |
           find platforms/android -name "*.gradle" -exec sed -i 's/new XmlParser(/new groovy.xml.XmlParser(/g' {} +
           find platforms/android -name "*.gradle" -exec sed -i 's/import groovy.util.XmlParser/import groovy.xml.XmlParser/g' {} +
 
-      - name: Build Debug APK
+      - name: Build Debug APK via Cordova
         run: cordova build android --debug -- --no-daemon
 
       - name: Find and Rename APK
