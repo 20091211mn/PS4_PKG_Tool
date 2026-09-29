@@ -17,19 +17,17 @@ jobs:
         with:
           node-version: 18
 
-      - name: Build Portable Windows Executable
+      - name: Build Windows Executable
         run: |
-          npm init -y
-          npm install electron electron-builder --save-dev
-          npx electron-builder --win portable
+          npm install -g nativefier
+          nativefier --name "PS4_PKG_Studio" "www/index.html" --platform windows --arch x64 --portable
 
-      - name: Find and Rename EXE
+      - name: Create Zip Package
         run: |
-          $EXE_PATH = Get-ChildItem -Path dist\*.exe | Select-Object -ExpandProperty FullName -First 1
-          Copy-Item $EXE_PATH -Destination .\PS4_PKG_Studio_Windows.exe
+          Compress-Archive -Path PS4_PKG_Studio-win32-x64\* -DestinationPath PS4_PKG_Studio_Windows.zip
 
-      - name: Upload Windows EXE
+      - name: Upload Windows Package
         uses: actions/upload-artifact@v4
         with:
-          name: PS4_PKG_Studio_Windows_EXE
-          path: PS4_PKG_Studio_Windows.exe
+          name: PS4_PKG_Studio_Windows
+          path: PS4_PKG_Studio_Windows.zip

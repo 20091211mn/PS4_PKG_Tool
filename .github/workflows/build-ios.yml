@@ -22,18 +22,17 @@ jobs:
 
       - name: Add iOS Platform & Plugins
         run: |
-          cordova platform add ios@7.0.1
+          cordova platform add ios
           cordova plugin add cordova-plugin-file
 
-      - name: Build iOS App with Xcode
-        run: |
-          cd platforms/ios
-          xcodebuild -workspace "PS4 PKG Studio.xcworkspace" -scheme "PS4 PKG Studio" -configuration Debug -sdk iphonesimulator CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
+      - name: Build iOS App
+        run: cordova build ios --emulator --codeSignIdentity="" --codeSigningRequired=NO
 
       - name: Create IPA File
         run: |
           mkdir -p Payload
-          cp -r platforms/ios/build/Uninstalledproducts-iphonesimulator/*.app Payload/ || cp -r platforms/ios/build/Build/Products/Debug-iphonesimulator/*.app Payload/
+          APP_PATH=$(find platforms/ios/build -name "*.app" | head -n 1)
+          cp -r "$APP_PATH" Payload/
           zip -r PS4_PKG_Studio.ipa Payload
 
       - name: Upload iOS IPA
