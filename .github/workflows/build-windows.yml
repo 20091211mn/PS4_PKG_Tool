@@ -1,0 +1,31 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build Executable Windows App
+        run: |
+          npm init -y
+          npm install electron electron-builder --save-dev
+          npx electron-builder --win nsis --config.asar=false
+        continue-on-error: true
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS4_PKG_Studio_Windows_EXE
+          path: dist/*.exe

@@ -1,0 +1,41 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Cordova
+        run: npm install -g cordova@12.0.0
+
+      - name: Add iOS Platform & Plugins
+        run: |
+          cordova platform add ios
+          cordova plugin add cordova-plugin-file
+
+      - name: Build iOS Package
+        run: cordova build ios --simulator --codeSignIdentity="" --codeSigningRequired=NO
+
+      - name: Create IPA File
+        run: |
+          mkdir -p Payload
+          cp -r platforms/ios/build/emulator/*.app Payload/ || true
+          zip -r PS4_PKG_Studio.ipa Payload
+
+      - name: Upload iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS4_PKG_Studio_iOS_IPA
+          path: "*.ipa"
