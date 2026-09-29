@@ -17,15 +17,19 @@ jobs:
         with:
           node-version: 18
 
-      - name: Build Executable Windows App
+      - name: Build Portable Windows Executable
         run: |
           npm init -y
           npm install electron electron-builder --save-dev
-          npx electron-builder --win nsis --config.asar=false
-        continue-on-error: true
+          npx electron-builder --win portable
+
+      - name: Find and Rename EXE
+        run: |
+          $EXE_PATH = Get-ChildItem -Path dist\*.exe | Select-Object -ExpandProperty FullName -First 1
+          Copy-Item $EXE_PATH -Destination .\PS4_PKG_Studio_Windows.exe
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: PS4_PKG_Studio_Windows_EXE
-          path: dist/*.exe
+          path: PS4_PKG_Studio_Windows.exe
