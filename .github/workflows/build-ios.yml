@@ -25,8 +25,10 @@ jobs:
           cordova platform add ios
           cordova plugin add cordova-plugin-file
 
-      - name: Build iOS App
-        run: cordova build ios --emulator --codeSignIdentity="" --codeSigningRequired=NO
+      - name: Build iOS Package
+        run: |
+          cd platforms/ios
+          xcodebuild -workspace "PS4 PKG Studio.xcworkspace" -scheme "PS4 PKG Studio" -configuration Debug -destination "generic/platform=iOS" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
 
       - name: Create IPA File
         run: |
