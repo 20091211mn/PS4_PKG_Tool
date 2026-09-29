@@ -42,7 +42,9 @@ jobs:
           find platforms/android -name "*.gradle" -exec sed -i 's/new XmlParser(/new groovy.xml.XmlParser(/g' {} +
           find platforms/android -name "*.gradle" -exec sed -i 's/import groovy.util.XmlParser/import groovy.xml.XmlParser/g' {} +
 
-      - name: Build Debug APK via Cordova
+      - name: Build Debug APK via Cordova with Custom Gradle
+        env:
+          CORDOVA_ANDROID_GRADLE_DISTRIBUTION_URL: "https://services.gradle.org/distributions/gradle-8.11.1-bin.zip"
         run: cordova build android --debug -- --no-daemon
 
       - name: Find and Rename APK
