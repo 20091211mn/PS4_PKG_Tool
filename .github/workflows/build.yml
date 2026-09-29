@@ -1,4 +1,4 @@
-name: Build Cordova Android APK
+name: Build Android APK
 
 on:
   push:
@@ -18,26 +18,22 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        node-version: '20'
+        python-version: '3.11'
 
-    - name: Install Cordova & Dependencies
+    - name: Install dependencies
       run: |
-        npm install -g cordova
-        npm install
+        python -m pip install --upgrade pip
+        pip install buildozer cython
 
-    - name: Add Android Platform
+    - name: Build APK with Buildozer
       run: |
-        cordova platform add android
-
-    - name: Build APK
-      run: |
-        cordova build android --debug
+        buildozer android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: cordova-apk
-        path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
+        name: PS4-PKG-Tool
+        path: bin/*.apk
