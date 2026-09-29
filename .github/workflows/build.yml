@@ -24,7 +24,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Android Build Tools 33.0.2
+      - name: Install Android Build Tools & SDK 33
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" "platforms;android-33"
@@ -42,16 +42,8 @@ jobs:
           find platforms/android -name "*.gradle" -exec sed -i 's/new XmlParser(/new groovy.xml.XmlParser(/g' {} +
           find platforms/android -name "*.gradle" -exec sed -i 's/import groovy.util.XmlParser/import groovy.xml.XmlParser/g' {} +
 
-      - name: Setup Gradle 8.5
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.5'
-
       - name: Build Debug APK via Cordova
-        run: |
-          # إزالة Gradle النظام من الـ PATH لإجبار Cordova على استخدام Gradle 8.5
-          export PATH=$(echo $PATH | sed -e 's/:\/usr\/share\/gradle-[^:]*//g')
-          cordova build android --debug -- --no-daemon
+        run: cordova build android --debug -- --no-daemon
 
       - name: Find and Rename APK
         run: |
