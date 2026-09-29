@@ -1,4 +1,4 @@
-name: Build Android APK
+name: build
 
 on:
   push:
@@ -18,32 +18,22 @@ jobs:
         with:
           node-version: 18
 
-      - name: Setup Java JDK 17
+      - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Gradle 8.4
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.4'
+          java-version: '11'
 
       - name: Install Cordova
-        run: npm install -g cordova
+        run: npm install -g cordova@12.0.0
 
-      - name: Setup Android Platform
+      - name: Add Android Platform
         run: |
           rm -rf platforms plugins
-          cordova platform add android@12.0.0
-
-      - name: Update Gradle Wrapper to 8.4
-        run: |
-          cd platforms/android
-          gradle wrapper --gradle-version 8.4
+          cordova platform add android@10.1.2
 
       - name: Build Debug APK
-        run: cordova build android --debug -- --no-daemon
+        run: cordova build android --debug
 
       - name: Find and Rename APK
         run: |
