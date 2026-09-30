@@ -1,13 +1,16 @@
-name: Build Android App
+name: Build & Release Android App
 
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -52,14 +55,25 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build APK with Gradle
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+      - name: Build Release APK
+        run: flutter build apk --release --no-tree-shake-icons
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Prepare Release File
+        run: |
+          mkdir -p release_files
+          cp build/app/outputs/flutter-apk/app-release.apk release_files/PS4_PKG_Studio_${{ github.ref_name }}.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: PS4-PKG-Tool-Android
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          tag_name: ${{ github.ref_name }}
+          name: "PS4 PKG Studio ${{ github.ref_name }}"
+          body: |
+            ### 🚀 الإصدار النيتيف الجديد (Flutter Native)
+            
+            - بناء نيتيف كامل بـ Flutter لسرعة فائقة واستقرار أعلى.
+            - دعم تقطيع ودمج أجزاء الـ PKG مع الـ Multi-threading.
+            - دعم قراءة الميتاداتا والتثبيت الشبكي المباشر لـ PS4 GoldHEN.
+          files: release_files/PS4_PKG_Studio_${{ github.ref_name }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
