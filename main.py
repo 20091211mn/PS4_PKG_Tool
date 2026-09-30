@@ -1,157 +1,120 @@
 import os
-import math
 import threading
-
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.progressbar import ProgressBar
-from kivy.core.text import LabelBase
 from kivy.clock import Clock
-from kivy.utils import platform
 
-try:
-    import arabic_reshaper
-    from bidi.algorithm import get_display
-    HAS_ARABIC_LIBS = True
-except ImportError:
-    HAS_ARABIC_LIBS = False
-
-def fix_text(text):
-    if not text:
-        return ""
-    if HAS_ARABIC_LIBS:
-        try:
-            reshaped = arabic_reshaper.reshape(text)
-            return get_display(reshaped)
-        except Exception:
-            return text
-    return text
-
-FONT_NAME = 'Roboto'
-font_path = 'Cairo-Regular.ttf'
-if os.path.exists(font_path):
-    try:
-        LabelBase.register(name='ArabicFont', fn_regular=font_path)
-        FONT_NAME = 'ArabicFont'
-    except Exception as e:
-        print(f"Font Error: {e}")
-
-class PS4ToolUI(BoxLayout):
+class PKGStudioNative(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(orientation='vertical', padding=20, spacing=15, **kwargs)
+        super(PKGStudioNative, self).__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.padding = 20
+        self.spacing = 15
 
         self.title_label = Label(
-            text=fix_text("أداة تقسيم ودمج ملفات PS4 PKG"),
-            font_name=FONT_NAME,
-            font_size='20sp',
-            bold=True,
+            text='[b]PS4 PKG Studio Native[/b]',
+            markup=True,
+            font_size='22sp',
             size_hint_y=None,
             height=40
         )
         self.add_widget(self.title_label)
 
-        self.file_input = TextInput(
-            hint_text=fix_text("اكتب مسار ملف الـ PKG هنا..."),
-            font_name=FONT_NAME,
-            font_size='14sp',
+        self.path_input = TextInput(
+            hint_text='أدخل المسار الكامل لملف PKG أو مجلد الأجزاء',
             multiline=False,
             size_hint_y=None,
             height=50
         )
-        self.add_widget(self.file_input)
+        self.add_widget(self.path_input)
+
+        self.parts_input = TextInput(
+            text='4',
+            hint_text='عدد الأجزاء',
+            multiline=False,
+            input_filter='int',
+            size_hint_y=None,
+            height=50
+        )
+        self.add_widget(self.parts_input)
+
+        self.progress_bar = ProgressBar(max=100, size_hint_y=None, height=20)
+        self.add_widget(self.progress_bar)
 
         self.status_label = Label(
-            text=fix_text("الحالة: جاهز للعمل"),
-            font_name=FONT_NAME,
+            text='الحالة: في إنتظار البدء...',
             font_size='14sp',
             size_hint_y=None,
             height=30
         )
         self.add_widget(self.status_label)
 
-        self.progress_bar = ProgressBar(max=100, value=0, size_hint_y=None, height=20)
-        self.add_widget(self.progress_bar)
-
         self.split_btn = Button(
-            text=fix_text("بدء تقسيم الملف إلى 4 أجزاء"),
-            font_name=FONT_NAME,
-            font_size='16sp',
-            background_color=(0, 0.4, 0.8, 1),
+            text='بدء التقسيم المباشر (Native Split)',
+            background_color=(0.2, 0.6, 1, 1),
             size_hint_y=None,
-            height=55
+            height=50
         )
         self.split_btn.bind(on_press=self.start_split_thread)
         self.add_widget(self.split_btn)
 
-    def update_status(self, text, progress=None):
-        def _update(dt):
-            self.status_label.text = fix_text(text)
-            if progress is not None:
-                self.progress_bar.value = progress
-        Clock.schedule_once(_update)
+    def update_status(self, text, progress):
+        self.status_label.text = text
+        self.progress_bar.value = progress
 
     def start_split_thread(self, instance):
-        file_path = self.file_input.text.strip()
-        if not file_path or not os.path.exists(file_path):
-            self.update_status("خطأ: تعذر العثور على الملف المحدد!")
+        file_path = self.path_input.text.strip()
+        if not os.path.exists(file_path):
+            self.status_label.text = 'خطأ: الملف غير موجود في المسار المكتوب!'
             return
-
+        
         self.split_btn.disabled = True
-        threading.Thread(target=self.split_pkg_file, args=(file_path,), daemon=True).start()
+        threading.Thread(target=self.native_split_engine, args=(file_path,)).start()
 
-    def split_pkg_file(self, file_path):
+    def native_split_engine(self, file_path):
         try:
+            num_parts = int(self.parts_input.text) or 4
             total_size = os.path.getsize(file_path)
-            part_size = math.ceil(total_size / 4)
-            buffer_size = 4 * 1024 * 1024
+            part_size = total_size // num_parts
+            buffer_size = 8 * 1024 * 1024  # 8MB chunk stream
 
-            self.update_status("جاري بدء عملية التقسيم...", 0)
+            output_dir = '/sdcard/Download/PS4_PKG_Tools'
+            os.makedirs(output_dir, exist_ok=True)
 
-            with open(file_path, 'rb') as src:
-                for i in range(4):
-                    part_filename = f"{file_path}.part{i}"
-                    bytes_remaining = part_size
-                    with open(part_filename, 'wb') as dst:
-                        while bytes_remaining > 0:
-                            read_len = min(bytes_remaining, buffer_size)
-                            chunk = src.read(read_len)
-                            if not chunk:
+            base_name = os.path.basename(file_path).replace('.pkg', '')
+
+            with open(file_path, 'rb') as f_in:
+                for i in range(num_parts):
+                    part_name = f"{base_name}_part{i+1}.pkg.part"
+                    part_path = os.path.join(output_dir, part_name)
+                    bytes_written = 0
+                    target_for_part = part_size if i < num_parts - 1 else (total_size - (part_size * i))
+
+                    with open(part_path, 'wb') as f_out:
+                        while bytes_written < target_for_part:
+                            chunk_size = min(buffer_size, target_for_part - bytes_written)
+                            data = f_in.read(chunk_size)
+                            if not data:
                                 break
-                            dst.write(chunk)
-                            bytes_remaining -= len(chunk)
+                            f_out.write(data)
+                            bytes_written += len(data)
 
-                            current_pos = src.tell()
-                            progress_pct = int((current_pos / total_size) * 100)
-                            self.update_status(f"جاري التقسيم: {progress_pct}% (الجزء {i+1}/4)", progress_pct)
+                            current_progress = int(((f_in.tell()) / total_size) * 100)
+                            Clock.schedule_once(lambda dt, p=current_progress, part=i+1: self.update_status(f'جاري كتابة الجزء {part}...', p))
 
-            self.update_status("تمت عملية التقسيم بنجاح!", 100)
+            Clock.schedule_once(lambda dt: self.update_status('تم التقسيم بنجاح في مجلد Download/PS4_PKG_Tools!', 100))
         except Exception as e:
-            self.update_status(f"حدث خطأ: {str(e)}")
+            Clock.schedule_once(lambda dt, err=str(e): self.update_status(f'خطأ: {err}', 0))
         finally:
-            def _reenable(dt):
-                self.split_btn.disabled = False
-            Clock.schedule_once(_reenable)
+            Clock.schedule_once(lambda dt: setattr(self.split_btn, 'disabled', False))
 
-class PS4PKGToolApp(App):
+class PS4StudioApp(App):
     def build(self):
-        return PS4ToolUI()
-
-    def on_start(self):
-        if platform == 'android':
-            Clock.schedule_once(self.request_android_permissions, 1.0)
-
-    def request_android_permissions(self, dt):
-        try:
-            from android.permissions import request_permissions, Permission
-            request_permissions([
-                Permission.READ_EXTERNAL_STORAGE,
-                Permission.WRITE_EXTERNAL_STORAGE
-            ])
-        except Exception as e:
-            print(f"Android Permission Request Handled: {e}")
+        return PKGStudioNative()
 
 if __name__ == '__main__':
-    PS4PKGToolApp().run()
+    PS4StudioApp().run()
