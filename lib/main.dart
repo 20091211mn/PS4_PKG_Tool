@@ -36,15 +36,12 @@ class _PKGSplitterScreenState extends State<PKGSplitterScreen> {
   @override
   void initState() {
     super.initState();
-    _requestStoragePermission();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _askPermissions());
   }
 
-  Future<void> _requestStoragePermission() async {
-    if (await Permission.manageExternalStorage.request().isGranted) {
-      setState(() => _status = "تم منح إذن الوصول الشامل للتخزين.");
-    } else {
-      await Permission.manageExternalStorage.request();
-    }
+  Future<void> _askPermissions() async {
+    await Permission.notification.request();
+    await Permission.manageExternalStorage.request();
   }
 
   Future<void> _splitFile() async {
@@ -54,7 +51,7 @@ class _PKGSplitterScreenState extends State<PKGSplitterScreen> {
     if (!await Permission.manageExternalStorage.isGranted) {
       final status = await Permission.manageExternalStorage.request();
       if (!status.isGranted) {
-        setState(() => _status = "خطأ: يلزم تفعيل إذن الوصول الشامل للتخزين من إعدادات الهاتف!");
+        setState(() => _status = "خطأ: يلزم تفعيل إذن الوصول الشامل للتخزين!");
         return;
       }
     }
