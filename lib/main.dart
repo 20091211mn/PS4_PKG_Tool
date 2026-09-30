@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const PKGStudioApp());
@@ -32,9 +33,31 @@ class _PKGSplitterScreenState extends State<PKGSplitterScreen> {
   String _status = "في انتظار البدء...";
   bool _isProcessing = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _requestStoragePermission();
+  }
+
+  Future<void> _requestStoragePermission() async {
+    if (await Permission.manageExternalStorage.request().isGranted) {
+      setState(() => _status = "تم منح إذن الوصول الشامل للتخزين.");
+    } else {
+      await Permission.manageExternalStorage.request();
+    }
+  }
+
   Future<void> _splitFile() async {
     final filePath = _pathController.text.trim();
     final partsCount = int.tryParse(_partsController.text) ?? 4;
+
+    if (!await Permission.manageExternalStorage.isGranted) {
+      final status = await Permission.manageExternalStorage.request();
+      if (!status.isGranted) {
+        setState(() => _status = "خطأ: يلزم تفعيل إذن الوصول الشامل للتخزين من إعدادات الهاتف!");
+        return;
+      }
+    }
 
     final file = File(filePath);
     if (!await file.exists()) {
@@ -51,7 +74,6 @@ class _PKGSplitterScreenState extends State<PKGSplitterScreen> {
     try {
       final totalSize = await file.length();
       final partSize = totalSize ~/ partsCount;
-      const bufferSize = 8 * 1024 * 1024; // 8MB Direct Chunk
 
       final outputDir = Directory('/sdcard/Download/PS4_PKG_Tools');
       if (!await outputDir.exists()) {
