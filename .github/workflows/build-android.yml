@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -23,6 +23,11 @@ jobs:
       - name: Generate Native Android Project
         run: flutter create . --platforms=android --org=com.ps4pkg.studio
 
+      - name: Force compileSdk 36
+        run: |
+          find android/ -name "build.gradle" -exec sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/g' {} +
+          find android/ -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/g' {} +
+
       - name: Accept Android Licenses
         run: yes | flutter doctor --android-licenses || true
 
@@ -31,8 +36,6 @@ jobs:
 
       - name: Build APK
         run: flutter build apk --debug --no-tree-shake-icons
-        env:
-          JAVA_TOOL_OPTIONS: "-Xmx3g"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
