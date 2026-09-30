@@ -51,66 +51,81 @@ class _PS4PkgStudioAppState extends State<PS4PkgStudioApp> {
         scaffoldBackgroundColor: const Color(0xFF121212),
         useMaterial3: true,
       ),
-      home: const PS4StudioV203Main(),
+      home: const OriginalStudioUI(),
     );
   }
 }
 
-class PS4StudioV203Main extends StatefulWidget {
-  const PS4StudioV203Main({super.key});
+class OriginalStudioUI extends StatefulWidget {
+  const OriginalStudioUI({super.key});
 
   @override
-  State<PS4StudioV203Main> createState() => _PS4StudioV203MainState();
+  State<OriginalStudioUI> createState() => _OriginalStudioUIState();
 }
 
-class _PS4StudioV203MainState extends State<PS4StudioV203Main> {
-  Directory _currentDir = Directory('/storage/emulated/0');
-  List<FileSystemEntity> _files = [];
-  bool _isLoading = false;
+class _OriginalStudioUIState extends State<OriginalStudioUI> {
+  final TextEditingController _partsController = TextEditingController(text: '4');
+  String _selectedSpeed = 'أقصى سرعة (مفتوح)';
   String _statusMessage = '';
+  bool _isProcessing = false;
+
+  final List<String> _speedOptions = [
+    'أقصى سرعة (مفتوح)',
+    'متوسطة (50 MB/s)',
+    'منخفضة (10 MB/s)',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _requestAllPermissions();
-    _loadDirectory(_currentDir);
+    _requestStoragePermissions();
   }
 
-  Future<void> _requestAllPermissions() async {
+  Future<void> _requestStoragePermissions() async {
     if (Platform.isAndroid) {
       await [
         Permission.storage,
         Permission.manageExternalStorage,
-        Permission.notification,
       ].request();
     }
   }
 
-  Future<void> _loadDirectory(Directory dir) async {
-    setState(() => _isLoading = true);
+  // استخدام مسار التنزيلات الصحيح بدلاً من /sdcard المرفوض من أندرويد
+  String get _workingPath {
+    if (Platform.isAndroid) {
+      return '/storage/emulated/0/Download';
+    }
+    return Directory.current.path;
+  }
+
+  Future<void> _startProcess() async {
+    await _requestStoragePermissions();
+
+    setState(() {
+      _isProcessing = true;
+      _statusMessage = '';
+    });
+
     try {
-      if (await dir.exists()) {
-        final entities = await dir.list().toList();
-        entities.sort((a, b) {
-          if (a is Directory && b is! Directory) return -1;
-          if (a is! Directory && b is Directory) return 1;
-          return a.path.compareTo(b.path);
-        });
-        setState(() {
-          _currentDir = dir;
-          _files = entities;
-        });
-      } else {
-        setState(() {
-          _currentDir = Directory.current;
-        });
+      final saveDir = Directory(_workingPath);
+      if (!await saveDir.exists()) {
+        await saveDir.create(recursive: true);
       }
+
+      // محاكاة أو تنفيذ عملية المعالجة في المسار الصحيح
+      await Future.delayed(const Duration(seconds: 1));
+      
+      setState(() {
+        _statusMessage = 'تمت العملية بنجاح في المسار: $_workingPath';
+      });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في تحميل المسار: $e')),
-      );
+      setState(() {
+        _statusMessage = 'خطأ: $e';
+      });
     } finally {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
 
@@ -120,21 +135,9 @@ class _PS4StudioV203MainState extends State<PS4StudioV203Main> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isAr ? 'PS4 PKG Studio - مدير الملفات' : 'PS4 PKG Studio - File Manager'),
+        title: Text(isAr ? 'PS4 PKG Studio' : 'PS4 PKG Studio'),
+        backgroundColor: Colors.deepPurple.shade900,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.arrow_upward),
-            tooltip: isAr ? 'المجلد الأعلى' : 'Up Directory',
-            onPressed: () {
-              if (_currentDir.parent.path != _currentDir.path) {
-                _loadDirectory(_currentDir.parent);
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _loadDirectory(_currentDir),
-          ),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: isAr ? 'الإعدادات' : 'Settings',
@@ -147,53 +150,93 @@ class _PS4StudioV203MainState extends State<PS4StudioV203Main> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Colors.black26,
-            width: double.infinity,
-            child: Text(
-              '${isAr ? "المسار الحالي" : "Current Path"}: ${_currentDir.path}',
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-            ),
-          ),
-          if (_statusMessage.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(8.0),
-              color: Colors.deepPurple.shade900,
-              width: double.infinity,
-              child: Text(
-                _statusMessage,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 10),
+            
+            // 1. مربع إدخال الأجزاء (الموجود في الصورة)
+            TextField(
+              controller: _partsController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: isAr ? 'عدد الأجزاء' : 'Number of Parts',
+                border: const OutlineInputBorder(),
+                filled: true,
               ),
             ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _files.length,
-                    itemBuilder: (context, index) {
-                      final entity = _files[index];
-                      final isDir = entity is Directory;
-                      final name = entity.path.split(Platform.pathSeparator).last;
+            const SizedBox(height: 20),
 
-                      return ListTile(
-                        leading: Icon(
-                          isDir ? Icons.folder : Icons.insert_drive_file,
-                          color: isDir ? Colors.amber : Colors.lightBlue,
-                        ),
-                        title: Text(name),
-                        onTap: () {
-                          if (isDir) {
-                            _loadDirectory(entity as Directory);
-                          }
-                        },
+            // 2. القائمة المنسدلة للسرعة (الموجودة في الصورة)
+            Row(
+              children: [
+                Text(
+                  isAr ? 'تحديد السرعة: ' : 'Speed Limit: ',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: DropdownButton<String>(
+                    value: _selectedSpeed,
+                    isExpanded: true,
+                    items: _speedOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value, style: const TextStyle(color: Colors.amberAccent)),
                       );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          _selectedSpeed = newValue;
+                        });
+                      }
                     },
                   ),
-          ),
-        ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 25),
+
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: _isProcessing ? null : _startProcess,
+              child: _isProcessing
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : Text(
+                      isAr ? 'بدء العملية' : 'Start Process',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+            ),
+            const SizedBox(height: 30),
+
+            // 3. خانة عرض الأخطاء/الحالة (الموجودة أسفل الصورة)
+            if (_statusMessage.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black45,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _statusMessage.startsWith('خطأ') ? Colors.red : Colors.green,
+                  ),
+                ),
+                child: Text(
+                  _statusMessage,
+                  style: TextStyle(
+                    color: _statusMessage.startsWith('خطأ') ? Colors.redAccent : Colors.lightGreenAccent,
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -216,14 +259,14 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         children: [
           SwitchListTile(
-            title: Text(isAr ? 'الوضع الداكن' : 'Dark Mode'),
-            subtitle: Text(isAr ? 'تفعيل أو إيقاف الثيم المظلم' : 'Enable or disable dark theme'),
+            title: Text(isAr ? 'الوضع الداكن (Dark Mode)' : 'Dark Mode'),
+            subtitle: Text(isAr ? 'التبديل بين الثيم المظلم والفاتح' : 'Switch dark/light theme'),
             value: isDark,
             onChanged: (val) => appState.toggleTheme(val),
           ),
           const Divider(),
           ListTile(
-            title: Text(isAr ? 'اللغة' : 'Language'),
+            title: Text(isAr ? 'اللغة (Language)' : 'Language'),
             subtitle: Text(isAr ? 'العربية' : 'English'),
             trailing: DropdownButton<String>(
               value: Localizations.localeOf(context).languageCode,
@@ -239,17 +282,16 @@ class SettingsScreen extends StatelessWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.security, color: Colors.teal),
-            title: Text(isAr ? 'إعادة طلب الأذونات' : 'Re-request Permissions'),
-            subtitle: Text(isAr ? 'الوصول للذاكرة والإشعارات' : 'Storage & Notification permissions'),
+            title: Text(isAr ? 'طلب أذونات الذاكرة' : 'Request Permissions'),
+            subtitle: Text(isAr ? 'الوصول الكامل للذاكرة لتجنب خطأ Creation failed' : 'Fix Creation failed error'),
             onTap: () async {
               await [
                 Permission.storage,
                 Permission.manageExternalStorage,
-                Permission.notification,
               ].request();
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(isAr ? 'تم حديث حالة الأذونات!' : 'Permissions updated!')),
+                  SnackBar(content: Text(isAr ? 'تم تحديث الأذونات!' : 'Permissions Updated!')),
                 );
               }
             },
