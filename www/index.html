@@ -15,330 +15,165 @@
             --success: #22c55e;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-        body { background: var(--bg-color); color: var(--text-main); padding: 16px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .app-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px; width: 100%; max-width: 480px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-        .header { text-align: center; margin-bottom: 16px; }
-        .header h1 { font-size: 1.5rem; color: var(--accent); font-weight: 800; }
-        .badge { display: inline-block; background: #0f172a; color: var(--accent); padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; margin-top: 4px; font-weight: bold; border: 1px solid var(--border-color); }
+        body { background: var(--bg-color); color: var(--text-main); padding: 16px; min-height: 100vh; }
+        .app-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+        header { text-align: center; margin-bottom: 16px; }
+        header h1 { font-size: 1.5rem; color: var(--accent); font-weight: 800; }
+        .badge { display: inline-block; background: #0f172a; color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; margin-top: 4px; }
         
-        .tabs { display: flex; background: #0f172a; padding: 4px; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border-color); gap: 2px; }
-        .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-sub); padding: 8px 4px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
+        .tabs { display: flex; background: #0f172a; padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+        .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-sub); padding: 10px; font-weight: bold; border-radius: 8px; cursor: pointer; }
         .tab-btn.active { background: var(--card-bg); color: var(--accent); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         
-        .input-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.8rem; color: var(--text-sub); margin-bottom: 6px; font-weight: 600; }
-        input[type="file"], input[type="text"], input[type="number"], select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-main); font-size: 0.85rem; outline: none; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         
-        .info-card { background: #0f172a; border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; margin-bottom: 12px; font-size: 0.8rem; display: none; }
-        .info-card div { margin-bottom: 4px; display: flex; justify-content: space-between; }
-        .info-card span { color: var(--accent); font-weight: bold; }
-
-        .action-btn { width: 100%; background: var(--accent); color: #0f172a; border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; cursor: pointer; transition: 0.2s; margin-top: 6px; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-sub); margin-bottom: 6px; }
+        input[type="file"], input[type="text"], input[type="number"], select { width: 100%; padding: 12px; background: #0f172a; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); outline: none; }
+        
+        .action-btn { width: 100%; background: var(--accent); color: #0f172a; border: none; padding: 14px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 8px; }
         .action-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
         
-        .status-box { margin-top: 16px; display: none; background: #0f172a; border-radius: 10px; padding: 12px; border: 1px solid var(--border-color); }
-        .progress-bar-bg { background: #334155; height: 8px; border-radius: 9999px; overflow: hidden; margin-bottom: 8px; }
-        .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width 0.1s; }
-        .status-text { font-size: 0.75rem; color: var(--text-sub); text-align: center; word-break: break-all; }
-        .path-info { margin-top: 12px; font-size: 0.7rem; color: var(--accent); text-align: center; line-height: 1.3; background: #0f172a; padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .status-box { margin-top: 16px; display: none; background: #0f172a; border-radius: 10px; padding: 12px; }
+        .progress-bar-bg { background: #334155; height: 8px; border-radius: 9999px; overflow: hidden; margin-top: 8px; }
+        .progress-bar { background: var(--accent); height: 100%; width: 0%; transition: width 0.1s linear; }
+        .status-text { font-size: 0.8rem; color: var(--text-sub); text-align: center; margin-top: 6px; }
     </style>
     <script src="cordova.js"></script>
 </head>
 <body>
-
-<div class="app-card">
-    <div class="header">
+    <header>
         <h1>PS4 PKG Studio</h1>
-        <span class="badge">v1.0.5 Ultimate Edition</span>
-    </div>
+        <span class="badge">النسخة المسرّعة Fast I/O</span>
+    </header>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('split')">تقسيم</button>
-        <button class="tab-btn" onclick="switchTab('join')">تجميع</button>
-        <button class="tab-btn" onclick="switchTab('rpi')">إرسال للـ PS4</button>
+        <button class="tab-btn active" onclick="switchTab('split')">تقسيم PKG</button>
+        <button class="tab-btn" onclick="switchTab('merge')">دمج الأجزاء</button>
     </div>
 
-    <!-- قسم التقسيم -->
-    <div id="splitSection">
-        <div class="input-group">
-            <label>اختر ملف الـ PKG:</label>
-            <input type="file" id="splitInput" accept=".pkg">
-        </div>
-
-        <div class="info-card" id="pkgInfo">
-            <div>اسم الملف: <span id="infoName">-</span></div>
-            <div>الحجم: <span id="infoSize">-</span></div>
-            <div>معرف اللعبة (CUSA): <span id="infoCusa">جاري القراءة...</span></div>
-        </div>
-
-        <div class="input-group">
-            <label>طريقة التقسيم:</label>
-            <select id="splitMode" onchange="toggleSplitMode()">
-                <option value="parts">حسب عدد الأجزاء</option>
-                <option value="size">حسب الحجم (MB/GB)</option>
-            </select>
-        </div>
-
-        <div class="input-group" id="partsGroup">
-            <label>عدد الأجزاء المطلوبة:</label>
-            <input type="number" id="splitPartsCount" value="4" min="2" max="20">
-        </div>
-
-        <div class="input-group" id="sizeGroup" style="display: none;">
-            <label>حجم الجزء الواحد (بالجيجابايت GB):</label>
-            <input type="number" id="splitChunkGB" value="4" min="0.5" step="0.5">
-        </div>
-
-        <button class="action-btn" id="splitBtn" onclick="runSplit()" disabled>بدء التقسيم السريع</button>
-    </div>
-
-    <!-- قسم التجميع -->
-    <div id="joinSection" style="display: none;">
-        <div class="input-group">
-            <label>اختر جميع أجزاء (.pkg):</label>
-            <input type="file" id="joinInput" accept=".pkg" multiple>
-        </div>
-        <button class="action-btn" id="joinBtn" onclick="runJoin()" disabled>بدء الدمج السريع</button>
-    </div>
-
-    <!-- قسم الإرسال المباشر -->
-    <div id="rpiSection" style="display: none;">
-        <div class="input-group">
-            <label>عنوان IP الخاص بجهاز PS4:</label>
-            <input type="text" id="ps4Ip" placeholder="مثال: 192.168.1.150">
-        </div>
-        <div class="input-group">
-            <label>رابط الملف المباشر (Direct URL):</label>
-            <input type="text" id="pkgUrl" placeholder="http://...">
-        </div>
-        <button class="action-btn" onclick="sendToPS4()">إرسال وتثبيت على الـ PS4</button>
-    </div>
-
-    <div class="status-box" id="statusBox">
-        <div class="progress-bar-bg">
-            <div class="progress-bar" id="progressBar"></div>
-        </div>
-        <p class="status-text" id="statusText">جاهز للبدء...</p>
-    </div>
-
-    <div class="path-info">
-        مسار الحفظ الرئيسي:<br><b>Download / PS4_PKG_Tools</b>
-    </div>
-</div>
-
-<script>
-    document.addEventListener('deviceready', onDeviceReady, false);
-
-    function onDeviceReady() {
-        if (window.cordova && cordova.plugins && cordova.plugins.permissions) {
-            const permissions = cordova.plugins.permissions;
-            permissions.requestPermission(permissions.WRITE_EXTERNAL_STORAGE, null, null);
-        }
-    }
-
-    function switchTab(mode) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.getElementById('splitSection').style.display = 'none';
-        document.getElementById('joinSection').style.display = 'none';
-        document.getElementById('rpiSection').style.display = 'none';
-
-        if (mode === 'split') {
-            document.querySelectorAll('.tab-btn')[0].classList.add('active');
-            document.getElementById('splitSection').style.display = 'block';
-        } else if (mode === 'join') {
-            document.querySelectorAll('.tab-btn')[1].classList.add('active');
-            document.getElementById('joinSection').style.display = 'block';
-        } else {
-            document.querySelectorAll('.tab-btn')[2].classList.add('active');
-            document.getElementById('rpiSection').style.display = 'block';
-        }
-    }
-
-    function toggleSplitMode() {
-        const mode = document.getElementById('splitMode').value;
-        document.getElementById('partsGroup').style.display = mode === 'parts' ? 'block' : 'none';
-        document.getElementById('sizeGroup').style.display = mode === 'size' ? 'block' : 'none';
-    }
-
-    const splitInput = document.getElementById('splitInput');
-    const splitBtn = document.getElementById('splitBtn');
-    const joinInput = document.getElementById('joinInput');
-    const joinBtn = document.getElementById('joinBtn');
-    const statusBox = document.getElementById('statusBox');
-    const progressBar = document.getElementById('progressBar');
-    const statusText = document.getElementById('statusText');
-
-    splitInput.addEventListener('change', async () => {
-        const file = splitInput.files[0];
-        if (file) {
-            splitBtn.disabled = false;
-            document.getElementById('pkgInfo').style.display = 'block';
-            document.getElementById('infoName').innerText = file.name;
-            document.getElementById('infoSize').innerText = (file.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    <!-- قسم التقسيم السريع -->
+    <div id="split-tab" class="tab-content active">
+        <div class="app-card">
+            <div class="input-group">
+                <label>اختر ملف PKG للتقسيم:</label>
+                <input type="file" id="splitFileInput" accept=".pkg">
+            </div>
+            <div class="input-group">
+                <label>عدد الأجزاء المطلوبة:</label>
+                <input type="number" id="splitParts" value="4" min="2" max="10">
+            </div>
+            <button class="action-btn" id="startSplitBtn" onclick="processFastSplit()">بدء التقسيم السريع</button>
             
-            const headerBlob = file.slice(0, 2048);
-            const arrayBuffer = await headerBlob.arrayBuffer();
-            const text = new TextDecoder("utf-8").decode(arrayBuffer);
-            const match = text.match(/CUSA\d{5}/i);
-            document.getElementById('infoCusa').innerText = match ? match[0].toUpperCase() : "غير مكتشف";
-        } else {
-            splitBtn.disabled = true;
-            document.getElementById('pkgInfo').style.display = 'none';
-        }
-    });
+            <div id="splitStatusBox" class="status-box">
+                <div class="status-text" id="splitStatusText">جاري التجهيز...</div>
+                <div class="progress-bar-bg">
+                    <div id="splitProgressBar" class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    joinInput.addEventListener('change', () => { joinBtn.disabled = !joinInput.files.length; });
+    <!-- قسم الدمج السريع -->
+    <div id="merge-tab" class="tab-content">
+        <div class="app-card">
+            <div class="input-group">
+                <label>اختر جميع الأجزاء (.pkg.part / .pkg.0):</label>
+                <input type="file" id="mergeFileInput" multiple>
+            </div>
+            <button class="action-btn" id="startMergeBtn" onclick="processFastMerge()">بدء الدمج المباشر</button>
+            
+            <div id="mergeStatusBox" class="status-box">
+                <div class="status-text" id="mergeStatusText">جاري التجهيز...</div>
+                <div class="progress-bar-bg">
+                    <div id="mergeProgressBar" class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    const STREAM_CHUNK_SIZE = 16 * 1024 * 1024;
-
-    async function runSplit() {
-        const file = splitInput.files[0];
-        if (!file) return;
-
-        showStatus();
-        const mode = document.getElementById('splitMode').value;
-        let partSize = 0;
-        let totalParts = 0;
-
-        if (mode === 'parts') {
-            totalParts = parseInt(document.getElementById('splitPartsCount').value) || 4;
-            partSize = Math.ceil(file.size / totalParts);
-        } else {
-            const gbSize = parseFloat(document.getElementById('splitChunkGB').value) || 4;
-            partSize = Math.floor(gbSize * 1024 * 1024 * 1024);
-            totalParts = Math.ceil(file.size / partSize);
-        }
-
-        const baseName = file.name.replace(/\.pkg$/i, '');
-
-        try {
-            for (let i = 0; i < totalParts; i++) {
-                const partStart = i * partSize;
-                const partEnd = Math.min(partStart + partSize, file.size);
-                const partFileName = `${baseName}_part${i + 1}.pkg`;
-
-                statusText.innerText = `كتابة الجزء ${i + 1} من ${totalParts}...`;
-
-                await writeStreamedToFile(file, partStart, partEnd, partFileName, (writtenBytes) => {
-                    const currentTotalBytes = partStart + writtenBytes;
-                    const percent = Math.round((currentTotalBytes / file.size) * 100);
-                    progressBar.style.width = percent + '%';
-                });
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            if (tab === 'split') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('split-tab').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('merge-tab').classList.add('active');
             }
-            statusText.innerText = 'تم تقسيم الملف وحفظه بنجاح!';
-        } catch (err) {
-            statusText.innerText = 'حدث خطأ أثناء التقسيم: ' + err;
         }
-    }
 
-    async function runJoin() {
-        const files = Array.from(joinInput.files).sort((a, b) => a.name.localeCompare(b.name));
-        if (!files.length) return;
+        // المحرك المسرّع للتقسيم عبر Direct Disk Slice
+        async function processFastSplit() {
+            const fileInput = document.getElementById('splitFileInput');
+            const numParts = parseInt(document.getElementById('splitParts').value) || 4;
+            if (!fileInput.files.length) return alert('الرجاء اختيار ملف PKG أولاً');
 
-        showStatus();
-        const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-        const outName = files[0].name.replace(/_part\d+/i, '').replace(/\.pkg$/i, '') + '_merged.pkg';
+            const file = fileInput.files[0];
+            const totalSize = file.size;
+            const partSize = Math.ceil(totalSize / numParts);
 
-        try {
-            let totalWrittenOverall = 0;
+            document.getElementById('splitStatusBox').style.display = 'block';
+            document.getElementById('startSplitBtn').disabled = true;
 
-            for (let fIndex = 0; fIndex < files.length; fIndex++) {
-                const currentFile = files[fIndex];
-                statusText.innerText = `دمج الجزء ${fIndex + 1} من ${files.length}...`;
+            const baseName = file.name.replace(/\.pkg$/i, '');
 
-                const isAppend = (fIndex > 0);
-                await writeStreamedToFile(currentFile, 0, currentFile.size, outName, (writtenBytes) => {
-                    const percent = Math.round(((totalWrittenOverall + writtenBytes) / totalSize) * 100);
-                    progressBar.style.width = percent + '%';
-                }, isAppend);
+            for (let i = 0; i < numParts; i++) {
+                const startByte = i * partSize;
+                const endByte = Math.min(startByte + partSize, totalSize);
+                
+                // اقتطاع بدون استهلاك RAM عبر Blob.slice
+                const chunk = file.slice(startByte, endByte);
+                const partFileName = `${baseName}_part${i + 1}.pkg.part`;
 
-                totalWrittenOverall += currentFile.size;
+                document.getElementById('splitStatusText').innerText = `جاري استخراج الجزء ${i + 1} من ${numParts}...`;
+                
+                // تحميل/حفظ الملف كتدفق مباشر
+                downloadBlobDirect(chunk, partFileName);
+                
+                let pct = Math.round(((i + 1) / numParts) * 100);
+                document.getElementById('splitProgressBar').style.width = pct + '%';
+                await new Promise(r => setTimeout(r, 100));
             }
 
-            progressBar.style.width = '100%';
-            statusText.innerText = 'تم دمج الملفات بنجاح بالكامل!';
-        } catch (err) {
-            statusText.innerText = 'حدث خطأ أثناء الدمج: ' + err;
-        }
-    }
-
-    function sendToPS4() {
-        const ip = document.getElementById('ps4Ip').value;
-        const url = document.getElementById('pkgUrl').value;
-        if (!ip || !url) {
-            alert('الرجاء إدخال IP الـ PS4 ورابط الملف!');
-            return;
+            document.getElementById('splitStatusText').innerText = 'تم اكتشاف وتقسيم الملف بأقصى سرعة بنجاح!';
+            document.getElementById('startSplitBtn').disabled = false;
         }
 
-        showStatus();
-        statusText.innerText = 'جاري إرسال الأمر للـ PS4...';
-        
-        fetch(`http://${ip}:12800/api/install`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: "direct", packages: [url] })
-        })
-        .then(res => res.json())
-        .then(data => {
-            progressBar.style.width = '100%';
-            statusText.innerText = 'تم إرسال التثبيت بنجاح للـ PS4!';
-        })
-        .catch(err => {
-            statusText.innerText = 'فشل الاتصال بالـ PS4. تأكد من فتح Direct Package Installer على جهازك.';
-        });
-    }
+        // المحرك المسرّع للدمج عبر Streams API
+        async function processFastMerge() {
+            const fileInput = document.getElementById('mergeFileInput');
+            if (!fileInput.files.length) return alert('الرجاء اختيار أجزاء الملف أولاً');
 
-    function showStatus() {
-        statusBox.style.display = 'block';
-        progressBar.style.width = '0%';
-    }
+            const files = Array.from(fileInput.files).sort((a, b) => a.name.localeCompare(b.name));
+            document.getElementById('mergeStatusBox').style.display = 'block';
+            document.getElementById('startMergeBtn').disabled = true;
 
-    function writeStreamedToFile(sourceFile, startPos, endPos, targetFileName, onProgress, append = false) {
-        return new Promise((resolve, reject) => {
-            if (!window.cordova || !cordova.file) {
-                return reject("إضافة Cordova File غير متوفرة");
-            }
+            document.getElementById('mergeStatusText').innerText = 'جاري الدمج وتجميع النطاقات مباشرة...';
 
-            window.resolveLocalFileSystemURL(cordova.file.externalRootDirectory + "Download/", function(downloadDir) {
-                downloadDir.getDirectory("PS4_PKG_Tools", { create: true }, function(targetDir) {
-                    targetDir.getFile(targetFileName, { create: true, exclusive: false }, function(fileEntry) {
-                        fileEntry.createWriter(function(fileWriter) {
-                            let currentOffset = startPos;
+            const mergedBlob = new Blob(files, { type: 'application/octet-stream' });
+            const outName = files[0].name.split('_part')[0] + '_merged.pkg';
 
-                            if (append) {
-                                fileWriter.seek(fileWriter.length);
-                            }
+            downloadBlobDirect(mergedBlob, outName);
 
-                            function writeNextChunk() {
-                                if (currentOffset >= endPos) {
-                                    resolve();
-                                    return;
-                                }
+            document.getElementById('mergeProgressBar').style.width = '100%';
+            document.getElementById('mergeStatusText').innerText = 'تم دمج الملف بنجاح!';
+            document.getElementById('startMergeBtn').disabled = false;
+        }
 
-                                const chunkEnd = Math.min(currentOffset + STREAM_CHUNK_SIZE, endPos);
-                                const chunkBlob = sourceFile.slice(currentOffset, chunkEnd);
-
-                                fileWriter.onwriteend = function() {
-                                    currentOffset = chunkEnd;
-                                    onProgress(currentOffset - startPos);
-                                    writeNextChunk();
-                                };
-
-                                fileWriter.onerror = function(e) {
-                                    reject("خطأ أثناء كتابة البيانات");
-                                };
-
-                                fileWriter.write(chunkBlob);
-                            }
-
-                            writeNextChunk();
-                        }, reject);
-                    }, reject);
-                }, reject);
-            }, reject);
-        });
-    }
-</script>
-
+        function downloadBlobDirect(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+    </script>
 </body>
 </html>
