@@ -35,9 +35,16 @@ jobs:
             sed -i 's/<application/<application android:requestLegacyExternalStorage="true" android:usesCleartextTraffic="true"/g' "$MANIFEST_FILE"
           fi
 
-      - name: Force compileSdk 36 on all dependencies
+      - name: Inject Repositories & Force compileSdk 36
         run: |
           cat << 'GRADLE_EOF' >> android/build.gradle
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
           subprojects {
               afterEvaluate { project ->
@@ -76,11 +83,11 @@ jobs:
           
           gh release create "${{ github.ref_name }}" "$RELEASE_NAME" \
             --title "PS4 PKG Studio ${{ github.ref_name }}" \
-            --notes "🚀 **مميزات الإصدار الرسمي ${{ github.ref_name }}:**
+            --notes "🚀 **إصدار رسمي متكامل ${{ github.ref_name }}:**
             
             📱 **نسخة الأندرويد (APK):**
-            - مدير ملفات مدمج وسريع للتصفح.
-            - تقنية البث المباشر (Stream Buffering) لتقطيع الـ PKG بدون استهلاك الرام (مناسب للأجهزة الضعيفة).
+            - مدير ملفات خفيف ومدمج.
+            - معالجة بالبث المباشر (Stream Buffering) لتوفير الذاكرة للأجهزة الضعيفة.
             
             💻 **نسخة الويندوز (EXE):**
-            - ملف تنفيذي مباشر جاهز للتشغيل على الويندوز." || gh release upload "${{ github.ref_name }}" "$RELEASE_NAME" --clobber
+            - ملف تنفيذي مباشر للكمبيوتر." || gh release upload "${{ github.ref_name }}" "$RELEASE_NAME" --clobber
