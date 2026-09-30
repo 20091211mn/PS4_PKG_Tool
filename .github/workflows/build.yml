@@ -26,24 +26,23 @@ jobs:
 
     - name: Force All Dependencies to CompileSDK 36
       run: |
-        MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
-        ROOT_GRADLE="android/build.gradle"
-
-        # حقن كود إجبار compileSdk=36 لجميع الحزم والـ Subprojects
-        cat << 'GRADLE_EOF' >> $ROOT_GRADLE
-
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            project.android {
-                compileSdkVersion 36
+        python3 -c "
+        gradle_path = 'android/build.gradle'
+        code = '''
+        subprojects {
+            afterEvaluate { project ->
+                if (project.hasProperty('android')) {
+                    project.android {
+                        compileSdkVersion 36
+                    }
+                }
             }
         }
-    }
-}
-GRADLE_EOF
-
-        # حقن أذونات أندرويد
+        '''
+        with open(gradle_path, 'a') as f:
+            f.write(code)
+        "
+        MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>' $MANIFEST_PATH
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST_PATH
 
