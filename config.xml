@@ -21,7 +21,7 @@
         </config-file>
         
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <attribute name="android:requestLegacyExternalStorage">true</attribute>
+            <application android:requestLegacyExternalStorage="true" />
         </config-file>
     </platform>
 </widget>
