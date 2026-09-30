@@ -23,12 +23,12 @@ jobs:
       - name: Generate Native Android Project
         run: flutter create . --platforms=android --org=com.ps4pkg.studio
 
-      - name: Inject Permissions & MANAGE_EXTERNAL_STORAGE into AndroidManifest
+      - name: Inject Permissions into AndroidManifest
         run: |
           MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_FILE" ]; then
-            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' "$MANIFEST_FILE"
-            sed -i 's/<application/<application android:requestLegacyExternalStorage="true"/g' "$MANIFEST_FILE"
+            sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>' "$MANIFEST_FILE"
+            sed -i 's/<application/<application android:requestLegacyExternalStorage="true" android:usesCleartextTraffic="true"/g' "$MANIFEST_FILE"
           fi
 
       - name: Force compileSdk 36 on all dependencies
