@@ -24,14 +24,25 @@ jobs:
       run: |
         flutter create . --platforms=android --org=com.ps4pkg.studio
 
+    - name: Fix Release Signing Config
+      run: |
+        python3 -c "
+        path = 'android/app/build.gradle'
+        with open(path, 'r') as f:
+            content = f.read()
+        content = content.replace('buildTypes {\n        release {\n            // TODO: Add your own signing config for the release build.', 'buildTypes {\n        release {\n            signingConfig signingConfigs.debug')
+        content = content.replace('signingConfig = signingConfigs.debug', 'signingConfig signingConfigs.debug')
+        with open(path, 'w') as f:
+            f.write(content)
+        "
+
     - name: Get Dependencies
       run: flutter pub get
 
     - name: Build APK Release
-      run: |
-        flutter build apk --release
+      run: flutter build apk --release
 
-    - name: Upload APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-Android-APK
@@ -63,7 +74,7 @@ jobs:
         mv Runner.app Payload/
         zip -r PS4-PKG-Studio-iOS.ipa Payload
 
-    - name: Upload IPA
+    - name: Upload IPA Artifact
       uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-iOS-IPA
