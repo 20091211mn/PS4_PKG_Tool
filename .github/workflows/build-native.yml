@@ -12,24 +12,24 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
 
     - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential ccache git python3-dev libncurses5-dev libncursesw5-dev zlib1g-dev zip unzip openjdk-17-jdk autoconf libtool pkg-config libssl-dev
 
-    - name: Install Buildozer & Dependencies
+    - name: Fix Pip and Install Buildozer
       run: |
-        pip install --upgrade pip
+        python -m pip install --upgrade "pip<24.1" "setuptools<69.0.0"
         pip install buildozer cython==0.29.33
 
-    - name: Build with Buildozer
+    - name: Build Android Debug APK
       run: |
         buildozer android debug
 

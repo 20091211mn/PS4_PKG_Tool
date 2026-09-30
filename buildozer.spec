@@ -5,7 +5,7 @@ package.domain = org.ps4pkg
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 1.0.0
-requirements = python3,kivy
+requirements = python3==3.11.0,kivy
 
 orientation = portrait
 fullscreen = 0
