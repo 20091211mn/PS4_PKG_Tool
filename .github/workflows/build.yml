@@ -50,12 +50,12 @@ jobs:
       run: flutter pub get
 
     - name: Build APK Release
-      run: flutter build apk --release
+      run: flutter build apk --release --target=lib/main.dart
 
     - uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-Android-APK
-        path: build/app/outputs/flutter-apk/app-release.apk
+        path: build/app/outputs/flutter-apk/*.apk
 
   build-ios:
     runs-on: macos-latest
