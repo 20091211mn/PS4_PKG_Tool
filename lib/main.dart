@@ -21,35 +21,125 @@ class PS4PkgStudioApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF121212),
         useMaterial3: true,
       ),
-      home: const MainHomeScreen(),
+      home: const PS4ToolsDashboard(),
     );
   }
 }
 
-class MainHomeScreen extends StatefulWidget {
-  const MainHomeScreen({super.key});
+class PS4ToolsDashboard extends StatefulWidget {
+  const PS4ToolsDashboard({super.key});
 
   @override
-  State<MainHomeScreen> createState() => _MainHomeScreenState();
+  State<PS4ToolsDashboard> createState() => _PS4ToolsDashboardState();
 }
 
-class _MainHomeScreenState extends State<MainHomeScreen> {
-  @override
-  void initState() {
-    super.initState();
-    _requestStoragePermissions();
+class _PS4ToolsDashboardState extends State<PS4ToolsDashboard> {
+  String _statusLog = 'جاهز لعمليات PS4 PKG';
+  bool _isProcessing = false;
+
+  // 1. وظيفة تقسيم ملف PKG إلى أجزاء (Split)
+  Future<void> _splitPkgFile(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) return;
+
+    setState(() {
+      _isProcessing = true;
+      _statusLog = 'جاري تقسيم ملف PKG...';
+    });
+
+    try {
+      final int chunkSize = 4 * 1024 * 1024 * 1024; // 4 جيجابايت للجزء الواحد
+      final inputStream = file.openRead();
+      int partIndex = 0;
+      int bytesWritten = 0;
+      IOSink? currentSink;
+
+      await for (var chunk in inputStream) {
+        if (currentSink == null || bytesWritten >= chunkSize) {
+          await currentSink?.flush();
+          await currentSink?.close();
+          currentSink = File('${file.path}.part$partIndex').openWrite();
+          partIndex++;
+          bytesWritten = 0;
+        }
+        currentSink.add(chunk);
+        bytesWritten += chunk.length;
+      }
+      await currentSink?.flush();
+      await currentSink?.close();
+
+      setState(() => _statusLog = 'تم تقسيم الملف بنجاح إلى $partIndex أجزاء!');
+    } catch (e) {
+      setState(() => _statusLog = 'خطأ في التقسيم: $e');
+    } finally {
+      setState(() => _isProcessing = false);
+    }
   }
 
-  Future<void> _requestStoragePermissions() async {
-    if (Platform.isAndroid) {
-      var status = await Permission.storage.status;
-      if (!status.isGranted) {
-        await Permission.storage.request();
+  // 2. وظيفة دمج الأجزاء (Merge .part0, .part1...)
+  Future<void> _mergePkgFiles(String basePath) async {
+    setState(() {
+      _isProcessing = true;
+      _statusLog = 'جاري دمج أجزاء PKG...';
+    });
+
+    try {
+      final outputFile = File('${basePath}_merged.pkg');
+      final outputSink = outputFile.openWrite();
+
+      int partIndex = 0;
+      while (true) {
+        final partFile = File('$basePath.part$partIndex');
+        if (!await partFile.exists()) break;
+
+        await outputSink.addStream(partFile.openRead());
+        partIndex++;
       }
-      var manageStatus = await Permission.manageExternalStorage.status;
-      if (!manageStatus.isGranted) {
-        await Permission.manageExternalStorage.request();
+
+      await outputSink.flush();
+      await outputSink.close();
+
+      setState(() => _statusLog = 'تم دمج $partIndex أجزاء بنجاح في ملف واحد!');
+    } catch (e) {
+      setState(() => _statusLog = 'خطأ في الدمج: $e');
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  // 3. وظيفة إرسال الملف إلى PS4 عبر الشبكة (Remote Installer API)
+  Future<void> _sendToPS4(String ipAddress, String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      setState(() => _statusLog = 'الملف غير موجود للإرسال');
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _statusLog = 'جاري إرسال اللعبة إلى PS4 عبر IP: $ipAddress...';
+    });
+
+    try {
+      // محاكاة بروتوكول إرسال حزم التثبيت المباشر لـ GoldHEN / Direct Package Installer
+      final client = HttpClient();
+      final request = await client.postUrl(Uri.parse('http://$ipAddress:12800/api/install'));
+      request.headers.set('Content-Type', 'application/json');
+      
+      // إرسال رابط أو مسار اللعبة كطلب تثبيت مباشر
+      request.write('{"type": "direct", "url": "${file.uri}"}');
+      final response = await request.close();
+
+      if (response.statusCode == 200) {
+        setState(() => _statusLog = 'تم إرسال أمر التثبيت إلى PS4 بنجاح!');
+      } else {
+        setState(() => _statusLog = 'فشل الاستجابة من PS4 (رمز: ${response.statusCode})');
       }
+      client.close();
+    } catch (e) {
+      setState(() => _statusLog = 'خطأ في الاتصال بالـ PS4: $e (تأكد من الـ IP وتفعيل GoldHEN)');
+    } finally {
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -57,8 +147,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PS4 PKG Studio', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
+        title: const Text('أدوات PS4 PKG Studio الفعالة'),
         backgroundColor: Colors.deepPurple.shade900,
       ),
       body: Padding(
@@ -66,293 +155,46 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.deepPurple),
+              ),
+              child: Text(
+                'حالة العمليات: $_statusLog',
+                style: const TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold),
+              ),
+            ),
             const SizedBox(height: 20),
-            const Text(
-              'أهلاً بك في PS4 PKG Studio',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            if (_isProcessing) const LinearProgressIndicator(color: Colors.amber),
+            const SizedBox(height: 20),
+            
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, padding: const EdgeInsets.all(14)),
+              icon: const Icon(Icons.call_split),
+              label: const Text('تقسيم ملف PKG (Split)', style: TextStyle(fontSize: 16)),
+              onPressed: _isProcessing ? null : () => _splitPkgFile('/storage/emulated/0/Download/game.pkg'),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'اختر القسم المناسب للبدء في إدارة وتقطيع ملفات الـ PKG',
-              style: TextStyle(color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 12),
 
-            _buildMenuButton(
-              context,
-              title: 'تصفح ومدير الملفات',
-              subtitle: 'تصفح الذاكرة وتقطيع ملفات PKG مباشرة',
-              icon: Icons.folder_open,
-              color: Colors.deepPurple,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FileManagerScreen()),
-                );
-              },
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, padding: const EdgeInsets.all(14)),
+              icon: const Icon(Icons.merge_type),
+              label: const Text('دمج أجزاء PKG (Merge)', style: TextStyle(fontSize: 16)),
+              onPressed: _isProcessing ? null : () => _mergePkgFiles('/storage/emulated/0/Download/game.pkg'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            _buildMenuButton(
-              context,
-              title: 'طلب أذونات الذاكرة',
-              subtitle: 'منح صلاحيات الوصول الكامل لجميع الملفات',
-              icon: Icons.security,
-              color: Colors.teal,
-              onTap: () async {
-                await _requestStoragePermissions();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم إرسال طلب الأذونات!')),
-                  );
-                }
-              },
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.all(14)),
+              icon: const Icon(Icons.send_to_mobile),
+              label: const Text('إرسال إلى PS4 عبر الشبكة (GoldHEN)', style: TextStyle(fontSize: 16)),
+              onPressed: _isProcessing ? null : () => _sendToPS4('192.168.1.50', '/storage/emulated/0/Download/game.pkg'),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMenuButton(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        leading: CircleAvatar(
-          backgroundColor: color,
-          radius: 26,
-          child: Icon(icon, color: Colors.white, size: 28),
-        ),
-        title: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-class FileManagerScreen extends StatefulWidget {
-  const FileManagerScreen({super.key});
-
-  @override
-  State<FileManagerScreen> createState() => _FileManagerScreenState();
-}
-
-class _FileManagerScreenState extends State<FileManagerScreen> {
-  late Directory _currentDir;
-  List<FileSystemEntity> _files = [];
-  bool _isLoading = false;
-  String _statusMessage = 'جاهز للعمليات';
-
-  @override
-  void initState() {
-    super.initState();
-    _initInitialDirectory();
-  }
-
-  Future<void> _initInitialDirectory() async {
-    Directory targetDir;
-    if (Platform.isAndroid) {
-      targetDir = Directory('/storage/emulated/0');
-      if (!await targetDir.exists()) {
-        targetDir = Directory.current;
-      }
-    } else {
-      targetDir = Directory.current;
-    }
-    _loadDirectory(targetDir);
-  }
-
-  Future<void> _loadDirectory(Directory dir) async {
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      if (await dir.exists()) {
-        final entities = await dir.list().toList();
-        entities.sort((a, b) {
-          if (a is Directory && b is! Directory) return -1;
-          if (a is! Directory && b is Directory) return 1;
-          return a.path.compareTo(b.path);
-        });
-        setState(() {
-          _currentDir = dir;
-          _files = entities;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في الوصول للمسار: $e')),
-        );
-      }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _splitPkgStream(File file) async {
-    setState(() {
-      _isLoading = true;
-      _statusMessage = 'جاري تقطيع الملف بأقل استهلاك للرام...';
-    });
-
-    try {
-      final int chunkSize = 4 * 1024 * 1024 * 1024; // 4GB Part Size
-      final String basePath = file.path;
-
-      int partIndex = 0;
-      int bytesCopiedCurrentPart = 0;
-
-      IOSink? currentSink;
-      final inputStream = file.openRead();
-
-      await for (List<int> chunk in inputStream) {
-        if (currentSink == null || bytesCopiedCurrentPart >= chunkSize) {
-          await currentSink?.flush();
-          await currentSink?.close();
-
-          final partPath = '$basePath.part$partIndex';
-          final partFile = File(partPath);
-          currentSink = partFile.openWrite();
-          partIndex++;
-          bytesCopiedCurrentPart = 0;
-        }
-
-        currentSink.add(chunk);
-        bytesCopiedCurrentPart += chunk.length;
-      }
-
-      await currentSink?.flush();
-      await currentSink?.close();
-
-      setState(() {
-        _statusMessage = 'تم تقطيع الملف بنجاح إلى $partIndex جزء!';
-      });
-      _loadDirectory(_currentDir);
-    } catch (e) {
-      setState(() {
-        _statusMessage = 'فشلت العملية: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('مدير الملفات'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.arrow_upward),
-            tooltip: 'المجلد الأعلى',
-            onPressed: () {
-              if (_currentDir.parent.path != _currentDir.path) {
-                _loadDirectory(_currentDir.parent);
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _loadDirectory(_currentDir),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Colors.black.withOpacity(0.25),
-            width: double.infinity,
-            child: Text(
-              'المسار: ${_currentDir.path}',
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Colors.deepPurple.shade900,
-            width: double.infinity,
-            child: Text(
-              _statusMessage,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _files.length,
-                    itemBuilder: (context, index) {
-                      final entity = _files[index];
-                      final isDir = entity is Directory;
-                      final name = entity.path.split(Platform.pathSeparator).last;
-
-                      return ListTile(
-                        leading: Icon(
-                          isDir ? Icons.folder : Icons.insert_drive_file,
-                          color: isDir ? Colors.amber : Colors.lightBlueAccent,
-                        ),
-                        title: Text(name),
-                        subtitle: isDir
-                            ? null
-                            : FutureBuilder<int>(
-                                future: (entity as File).length(),
-                                builder: (context, snapshot) {
-                                  if (!snapshot.hasData) return const Text('...');
-                                  final mb = (snapshot.data! / (1024 * 1024)).toStringAsFixed(2);
-                                  return Text('$mb MB');
-                                },
-                              ),
-                        onTap: () {
-                          if (isDir) {
-                            _loadDirectory(entity as Directory);
-                          } else if (name.toLowerCase().endsWith('.pkg')) {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text('معالجة $name'),
-                                content: const Text('هل تريد تقطيع ملف الـ PKG للأجهزة الضعيفة؟'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('إلغاء'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(ctx);
-                                      _splitPkgStream(entity as File);
-                                    },
-                                    child: const Text('تقطيع (Stream)'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
       ),
     );
   }
