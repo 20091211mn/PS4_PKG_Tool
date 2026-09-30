@@ -24,16 +24,26 @@ jobs:
       run: |
         flutter create . --platforms=android --org=com.ps4pkg.studio
 
-    - name: Fix CompileSDK Version & Inject Permissions
+    - name: Force All Dependencies to CompileSDK 36
       run: |
-        GRADLE_FILE="android/app/build.gradle"
         MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+        ROOT_GRADLE="android/build.gradle"
 
-        # رفع compileSdk إلى 36
-        sed -i 's/compileSdkVersion .*/compileSdkVersion 36/' $GRADLE_FILE || true
-        sed -i 's/compileSdk .*/compileSdk = 36/' $GRADLE_FILE || true
+        # حقن كود إجبار compileSdk=36 لجميع الحزم والـ Subprojects
+        cat << 'GRADLE_EOF' >> $ROOT_GRADLE
 
-        # حقن أذونات التخزين للإصدارات المختلفة
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileSdkVersion 36
+            }
+        }
+    }
+}
+GRADLE_EOF
+
+        # حقن أذونات أندرويد
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>' $MANIFEST_PATH
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST_PATH
 
