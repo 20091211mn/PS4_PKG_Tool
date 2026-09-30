@@ -10,20 +10,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
     - uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
+
     - uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
-    - run: flutter create . --platforms=android,ios --org=com.ps4pkg.studio
-    - run: |
+
+    - name: Recreate Android Project Framework
+      run: |
+        flutter create . --platforms=android --org=com.ps4pkg.studio
+
+    - name: Configure Android SDK Version & Permissions
+      run: |
+        GRADLE_FILE="android/app/build.gradle"
         MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+
+        # رفع compileSdk و targetSdk إلى 36 لحل مشكلة file_picker
+        sed -i 's/compileSdk = .*/compileSdk = 36/' $GRADLE_FILE || true
+        sed -i 's/targetSdk = .*/targetSdk = 36/' $GRADLE_FILE || true
+
+        # حقن أذونات التخزين والإشعارات
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>' $MANIFEST_PATH
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST_PATH
-    - run: flutter pub get
-    - run: flutter build apk --release
+
+    - name: Get Dependencies
+      run: flutter pub get
+
+    - name: Build APK Release
+      run: flutter build apk --release
+
     - uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-Android-APK
@@ -33,17 +52,28 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v4
+
     - uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
-    - run: flutter create . --platforms=ios --org=com.ps4pkg.studio
-    - run: flutter pub get
-    - run: flutter build ios --release --no-codesign
-    - run: |
+
+    - name: Recreate iOS Project Framework
+      run: |
+        flutter create . --platforms=ios --org=com.ps4pkg.studio
+
+    - name: Get Dependencies
+      run: flutter pub get
+
+    - name: Build iOS App
+      run: flutter build ios --release --no-codesign
+
+    - name: Package IPA
+      run: |
         cd build/ios/iphoneos
         mkdir Payload
         mv Runner.app Payload/
         zip -r PS4-PKG-Studio-iOS.ipa Payload
+
     - uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-iOS-IPA
