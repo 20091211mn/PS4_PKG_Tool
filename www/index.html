@@ -51,7 +51,7 @@
 <body>
     <header>
         <h1>PS4 PKG Studio</h1>
-        <span class="badge">v1.0.6 Ultimate Edition</span>
+        <span class="badge">v1.0.7 Native Storage Fixed</span>
     </header>
 
     <div class="tabs">
@@ -75,18 +75,11 @@
             </div>
 
             <div class="input-group">
-                <label>طريقة التقسيم:</label>
-                <select id="splitMode">
-                    <option value="parts">حسب عدد الأجزاء</option>
-                </select>
-            </div>
-
-            <div class="input-group">
                 <label>عدد الأجزاء المطلوبة:</label>
                 <input type="number" id="splitParts" value="4" min="2" max="20">
             </div>
 
-            <button class="action-btn" id="startSplitBtn" onclick="executeNativeSplit()">بدء التقسيم السريع</button>
+            <button class="action-btn" id="startSplitBtn" onclick="executeNativeSplit()">بدء التقسيم السريع والحفظ</button>
 
             <div id="splitStatusBox" class="status-box">
                 <div class="progress-bar-bg">
@@ -95,7 +88,7 @@
                 <div class="status-text" id="splitStatusText">جاري المعالجة...</div>
             </div>
 
-            <div class="path-info">مسار الحفظ الرئيسي:<br><b>Download / PS4_PKG_Tools</b></div>
+            <div class="path-info">مسار الحفظ المباشر:<br><b>التنزيلات (Download) / PS4_PKG_Tools</b></div>
         </div>
     </div>
 
@@ -106,13 +99,14 @@
                 <label>اختر أجزاء الملف للدمج:</label>
                 <input type="file" id="mergeFileInput" multiple>
             </div>
-            <button class="action-btn" onclick="executeNativeMerge()">بدء الجمع المباشر</button>
+            <button class="action-btn" id="startMergeBtn" onclick="executeNativeMerge()">بدء الدمج والحفظ</button>
             <div id="mergeStatusBox" class="status-box">
                 <div class="progress-bar-bg">
                     <div id="mergeProgressBar" class="progress-bar"></div>
                 </div>
                 <div class="status-text" id="mergeStatusText">جاري الجمع...</div>
             </div>
+            <div class="path-info">مسار الحفظ المباشر:<br><b>التنزيلات (Download) / PS4_PKG_Tools</b></div>
         </div>
     </div>
 
@@ -154,13 +148,41 @@
             document.getElementById('metaName').innerText = file.name;
             document.getElementById('metaSize').innerText = (file.size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
             
-            // قراءة تقريبية لرمز CUSA من اسم الملف
             const match = file.name.match(/CUSA\d{5}/i);
             document.getElementById('metaCusa').innerText = match ? match[0].toUpperCase() : 'CUSA11071';
             document.getElementById('fileMetadata').style.display = 'block';
         }
 
-        // كتابة حقيقية وسريعة باستخدام Cordova File Plugin والتخزين المباشر
+        // كتابة حقيقية ومباشرة في التخزين عبر Android Download Directory
+        function saveBlobNative(fileName, blob) {
+            return new Promise((resolve, reject) => {
+                // إذا كنا داخل بيئة Cordova مع أندرويد
+                if (window.cordova && cordova.file) {
+                    const storagePath = cordova.file.externalRootDirectory + 'Download/';
+                    window.resolveLocalFileSystemURL(storagePath, function (dirEntry) {
+                        dirEntry.getDirectory('PS4_PKG_Tools', { create: true }, function (subDir) {
+                            subDir.getFile(fileName, { create: true, exclusive: false }, function (fileEntry) {
+                                fileEntry.createWriter(function (fileWriter) {
+                                    fileWriter.onwriteend = function () { resolve(); };
+                                    fileWriter.onerror = function (e) { reject(e); };
+                                    fileWriter.write(blob);
+                                }, reject);
+                            }, reject);
+                        }, reject);
+                    }, reject);
+                } else {
+                    // التنزيل المباشر كحل بديل (المتصفح/الكمبيوتر)
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => { URL.revokeObjectURL(a.href); resolve(); }, 300);
+                }
+            });
+        }
+
         async function executeNativeSplit() {
             const fileInput = document.getElementById('splitFileInput');
             if (!fileInput.files.length) return alert('يرجى اختيار ملف PKG');
@@ -184,48 +206,42 @@
 
                     document.getElementById('splitStatusText').innerText = `جاري حفظ الجزء ${i + 1} من ${numParts}...`;
                     
-                    await writeChunkToDisk(partName, chunk);
+                    await saveBlobNative(partName, chunk);
 
                     let pct = Math.round(((i + 1) / numParts) * 100);
                     document.getElementById('splitProgressBar').style.width = pct + '%';
                 }
-                document.getElementById('splitStatusText').innerText = 'تم تقسيم الملف وحفظ جميع الأجزاء بنجاح!';
+                document.getElementById('splitStatusText').innerText = 'تم تقسيم الملف وحفظ جميع الأجزاء داخل مجلد Download/PS4_PKG_Tools!';
             } catch (err) {
-                document.getElementById('splitStatusText').innerText = 'حدث خطأ أثناء الكتابة: ' + (err.message || err);
+                document.getElementById('splitStatusText').innerText = 'خطأ في التخزين: التأكد من إعطاء صلاحية التخزين للتطبيق.';
             } finally {
                 document.getElementById('startSplitBtn').disabled = false;
             }
         }
 
-        function writeChunkToDisk(fileName, blob) {
-            return new Promise((resolve, reject) => {
-                if (typeof window.requestFileSystem === 'undefined' && typeof cordova === 'undefined') {
-                    // بيئة الكمبيوتر / المتصفح
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = fileName;
-                    a.click();
-                    setTimeout(resolve, 300);
-                    return;
-                }
-
-                // بيئة الهاتف عبر Cordova File System
-                window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, function (fs) {
-                    fs.root.getDirectory('PS4_PKG_Tools', { create: true }, function (dirEntry) {
-                        dirEntry.getFile(fileName, { create: true, exclusive: false }, function (fileEntry) {
-                            fileEntry.createWriter(function (fileWriter) {
-                                fileWriter.onwriteend = function () { resolve(); };
-                                fileWriter.onerror = function (e) { reject(e); };
-                                fileWriter.write(blob);
-                            }, reject);
-                        }, reject);
-                    }, reject);
-                }, reject);
-            });
-        }
-
         async function executeNativeMerge() {
-            alert('اختر الأجزاء للدمج وسيبدأ الحفظ المباشر في مجلد Download/PS4_PKG_Tools');
+            const fileInput = document.getElementById('mergeFileInput');
+            if (!fileInput.files.length) return alert('يرجى اختيار أجزاء الملف للدمج');
+
+            const files = Array.from(fileInput.files).sort((a, b) => a.name.localeCompare(b.name));
+            document.getElementById('mergeStatusBox').style.display = 'block';
+            document.getElementById('startMergeBtn').disabled = true;
+
+            document.getElementById('mergeStatusText').innerText = 'جاري دمج الأجزاء وحفظ الملف...';
+
+            try {
+                const mergedBlob = new Blob(files, { type: 'application/octet-stream' });
+                const outName = files[0].name.split('_part')[0] + '_merged.pkg';
+
+                await saveBlobNative(outName, mergedBlob);
+
+                document.getElementById('mergeProgressBar').style.width = '100%';
+                document.getElementById('mergeStatusText').innerText = 'تم دمج وحفظ الملف بنجاح داخل مجلد Download/PS4_PKG_Tools!';
+            } catch (err) {
+                document.getElementById('mergeStatusText').innerText = 'حدث خطأ أثناء كتابة الملف المدموج.';
+            } finally {
+                document.getElementById('startMergeBtn').disabled = false;
+            }
         }
 
         function sendToPS4() {
