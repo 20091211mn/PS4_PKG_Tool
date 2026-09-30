@@ -98,14 +98,14 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             _buildMenuButton(
               context,
               title: 'طلب أذونات الذاكرة',
-              subtitle: 'تأكيد منح صلاحية الوصول للذاكرة الخارجية',
+              subtitle: 'منح صلاحيات الوصول الكامل لجميع الملفات',
               icon: Icons.security,
               color: Colors.teal,
               onTap: () async {
                 await _requestStoragePermissions();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم تحديث أذونات الذاكرة!')),
+                    const SnackBar(content: Text('تم إرسال طلب الأذونات!')),
                   );
                 }
               },
