@@ -6,11 +6,12 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -58,22 +59,14 @@ jobs:
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons
 
-      - name: Prepare Release File
-        run: |
-          mkdir -p release_files
-          cp build/app/outputs/flutter-apk/app-release.apk release_files/PS4_PKG_Studio_${{ github.ref_name }}.apk
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "PS4 PKG Studio ${{ github.ref_name }}"
-          body: |
-            ### 🚀 الإصدار النيتيف الجديد (Flutter Native)
-            
-            - بناء نيتيف كامل بـ Flutter لسرعة فائقة واستقرار أعلى.
-            - دعم تقطيع ودمج أجزاء الـ PKG مع الـ Multi-threading.
-            - دعم قراءة الميتاداتا والتثبيت الشبكي المباشر لـ PS4 GoldHEN.
-          files: release_files/PS4_PKG_Studio_${{ github.ref_name }}.apk
+      - name: Create Real GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
+          RELEASE_NAME="PS4_PKG_Studio_${{ github.ref_name }}.apk"
+          cp "$APK_PATH" "$RELEASE_NAME"
+          
+          gh release create "${{ github.ref_name }}" "$RELEASE_NAME" \
+            --title "PS4 PKG Studio ${{ github.ref_name }}" \
+            --notes "🚀 إصدار نيتيف رسمي بـ Flutter متاح للتحميل المباشر."
