@@ -28,14 +28,13 @@ jobs:
           cat << 'GRADLE_EOF' >> android/build.gradle
 
           subprojects {
-              subproject ->
-                  afterEvaluate {
-                      if (subproject.hasProperty('android')) {
-                          subproject.android {
-                              compileSdkVersion 36
-                          }
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      project.android {
+                          compileSdkVersion 36
                       }
                   }
+              }
           }
           GRADLE_EOF
 
