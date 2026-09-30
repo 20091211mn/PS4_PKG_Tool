@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -50,7 +49,6 @@ class _HomePageState extends State<HomePage> {
     try {
       if (await dir.exists()) {
         final entities = await dir.list().toList();
-        // الترتيب: المجلدات أولاً ثم الملفات لتسهيل التصفح
         entities.sort((a, b) {
           if (a is Directory && b is! Directory) return -1;
           if (a is! Directory && b is Directory) return 1;
@@ -62,9 +60,11 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في الوصول للمسار: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في الوصول للمسار: $e')),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -72,7 +72,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ميزة الأجهزة الضعيفة: تقسيم الملف باستخدام Stream Buffering دون استهلاك الـ RAM
   Future<void> _splitPkgStream(File file) async {
     setState(() {
       _isLoading = true;
@@ -81,14 +80,12 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final int chunkSize = 4 * 1024 * 1024 * 1024; // 4GB Part Size
-      final int fileLength = await file.length();
       final String basePath = file.path;
 
       int partIndex = 0;
       int bytesCopiedCurrentPart = 0;
 
       IOSink? currentSink;
-
       final inputStream = file.openRead();
 
       await for (List<int> chunk in inputStream) {
@@ -150,7 +147,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           Container(
             padding: const EdgeInsets.all(8.0),
-            color: Colors.black25,
+            color: Colors.black.withOpacity(0.25),
             width: double.infinity,
             child: Text(
               'المسار الحالي: ${_currentDir.path}',
@@ -179,7 +176,7 @@ class _HomePageState extends State<HomePage> {
                       return ListTile(
                         leading: Icon(
                           isDir ? Icons.folder : Icons.insert_drive_file,
-                          color: isDir ? Colors.amber : Colors.blueLightActive,
+                          color: isDir ? Colors.amber : Colors.lightBlueAccent,
                         ),
                         title: Text(name),
                         subtitle: isDir
