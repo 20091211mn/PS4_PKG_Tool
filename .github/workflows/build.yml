@@ -24,35 +24,15 @@ jobs:
       run: |
         flutter create . --platforms=android --org=com.ps4pkg.studio
 
-    - name: Force All Dependencies to CompileSDK 36
-      run: |
-        python3 -c "
-        gradle_path = 'android/build.gradle'
-        code = '''
-        subprojects {
-            afterEvaluate { project ->
-                if (project.hasProperty('android')) {
-                    project.android {
-                        compileSdkVersion 36
-                    }
-                }
-            }
-        }
-        '''
-        with open(gradle_path, 'a') as f:
-            f.write(code)
-        "
-        MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
-        sed -i '/<manifest/a \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>' $MANIFEST_PATH
-        sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST_PATH
-
     - name: Get Dependencies
       run: flutter pub get
 
     - name: Build APK Release
-      run: flutter build apk --release
+      run: |
+        flutter build apk --release
 
-    - uses: actions/upload-artifact@v4
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-Android-APK
         path: build/app/outputs/flutter-apk/*.apk
@@ -83,7 +63,8 @@ jobs:
         mv Runner.app Payload/
         zip -r PS4-PKG-Studio-iOS.ipa Payload
 
-    - uses: actions/upload-artifact@v4
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-iOS-IPA
         path: build/ios/iphoneos/PS4-PKG-Studio-iOS.ipa
