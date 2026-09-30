@@ -20,10 +20,6 @@ jobs:
       with:
         channel: 'stable'
 
-    - name: Recreate Android Framework
-      run: |
-        flutter create . --platforms=android --org=com.ps4pkg.studio
-
     - name: Force All Dependencies to CompileSDK 36
       run: |
         python3 -c "
@@ -50,12 +46,12 @@ jobs:
       run: flutter pub get
 
     - name: Build APK Release
-      run: flutter build apk --release --target=lib/main.dart
+      run: flutter build apk --release
 
     - uses: actions/upload-artifact@v4
       with:
         name: PS4-PKG-Studio-Android-APK
-        path: build/app/outputs/flutter-apk/*.apk
+        path: build/app/outputs/flutter-apk/app-release.apk
 
   build-ios:
     runs-on: macos-latest
@@ -65,10 +61,6 @@ jobs:
     - uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
-
-    - name: Recreate iOS Framework
-      run: |
-        flutter create . --platforms=ios --org=com.ps4pkg.studio
 
     - name: Get Dependencies
       run: flutter pub get
