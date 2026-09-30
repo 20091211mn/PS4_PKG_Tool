@@ -1,5 +1,5 @@
 name: ps4_pkg_studio
-description: PS4 PKG Studio Native Flutter App
+description: PS4 PKG Studio Native App
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,7 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  file_picker: ^8.0.0
   permission_handler: ^11.3.1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

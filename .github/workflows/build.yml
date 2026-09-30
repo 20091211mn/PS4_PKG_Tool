@@ -1,0 +1,50 @@
+name: Build Android & iOS Apps
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+    - run: flutter create . --platforms=android,ios --org=com.ps4pkg.studio
+    - run: |
+        MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+        sed -i '/<manifest/a \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>' $MANIFEST_PATH
+        sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST_PATH
+    - run: flutter pub get
+    - run: flutter build apk --release
+    - uses: actions/upload-artifact@v4
+      with:
+        name: PS4-PKG-Studio-Android-APK
+        path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+    - run: flutter create . --platforms=ios --org=com.ps4pkg.studio
+    - run: flutter pub get
+    - run: flutter build ios --release --no-codesign
+    - run: |
+        cd build/ios/iphoneos
+        mkdir Payload
+        mv Runner.app Payload/
+        zip -r PS4-PKG-Studio-iOS.ipa Payload
+    - uses: actions/upload-artifact@v4
+      with:
+        name: PS4-PKG-Studio-iOS-IPA
+        path: build/ios/iphoneos/PS4-PKG-Studio-iOS.ipa
