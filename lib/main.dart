@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -80,7 +81,7 @@ class SplitterScreen extends StatefulWidget {
 class _SplitterScreenState extends State<SplitterScreen> {
   String? _selectedFilePath;
   final _partsController = TextEditingController(text: "4");
-  double _selectedSpeedMB = 0; // 0 = بدون حد (أقصى سرعة)
+  double _selectedSpeedMB = 0;
   double _progress = 0.0;
   String _status = "اختر ملف PKG للبدء";
   bool _isProcessing = false;
@@ -93,6 +94,27 @@ class _SplitterScreenState extends State<SplitterScreen> {
         _status = "تم اختيار: ${result.files.single.name}";
       });
     }
+  }
+
+  Future<Directory> _getOutputDir() async {
+    Directory? baseDir;
+    if (Platform.isAndroid) {
+      baseDir = Directory('/sdcard/Download/PS4_PKG_Tools');
+      try {
+        if (!await baseDir.exists()) {
+          await baseDir.create(recursive: true);
+        }
+        return baseDir;
+      } catch (_) {
+        baseDir = await getExternalStorageDirectory();
+      }
+    }
+    baseDir ??= await getApplicationDocumentsDirectory();
+    final outDir = Directory('${baseDir.path}/PS4_PKG_Tools');
+    if (!await outDir.exists()) {
+      await outDir.create(recursive: true);
+    }
+    return outDir;
   }
 
   Future<void> _splitFile() async {
@@ -118,8 +140,7 @@ class _SplitterScreenState extends State<SplitterScreen> {
     try {
       final totalSize = await file.length();
       final partSize = totalSize ~/ partsCount;
-      final outputDir = Directory('/sdcard/Download/PS4_PKG_Tools');
-      if (!await outputDir.exists()) await outputDir.create(recursive: true);
+      final outputDir = await _getOutputDir();
 
       final baseName = file.uri.pathSegments.last.replaceAll('.pkg', '');
       final inputStream = file.openRead();
@@ -144,7 +165,6 @@ class _SplitterScreenState extends State<SplitterScreen> {
           offset += toWrite;
           totalBytesProcessed += toWrite;
 
-          // خيار تحديد السرعة
           if (_selectedSpeedMB > 0) {
             double expectedTimeMs = (totalBytesProcessed / (_selectedSpeedMB * 1024 * 1024)) * 1000;
             int actualTimeMs = stopwatch.elapsedMilliseconds;
@@ -171,7 +191,7 @@ class _SplitterScreenState extends State<SplitterScreen> {
       await currentSink.flush();
       await currentSink.close();
       setState(() {
-        _status = "تم التقسيم بنجاح في مجلد Download/PS4_PKG_Tools";
+        _status = "تم التقسيم بنجاح في:\n${outputDir.path}";
         _progress = 1.0;
       });
     } catch (e) {
@@ -222,7 +242,7 @@ class _SplitterScreenState extends State<SplitterScreen> {
             const SizedBox(height: 20),
             LinearProgressIndicator(value: _progress),
             const SizedBox(height: 10),
-            Text(_status),
+            Text(_status, textAlign: TextAlign.center),
             const Spacer(),
             SizedBox(
               width: double.infinity,
@@ -264,6 +284,27 @@ class _MergerScreenState extends State<MergerScreen> {
     }
   }
 
+  Future<Directory> _getOutputDir() async {
+    Directory? baseDir;
+    if (Platform.isAndroid) {
+      baseDir = Directory('/sdcard/Download/PS4_PKG_Tools');
+      try {
+        if (!await baseDir.exists()) {
+          await baseDir.create(recursive: true);
+        }
+        return baseDir;
+      } catch (_) {
+        baseDir = await getExternalStorageDirectory();
+      }
+    }
+    baseDir ??= await getApplicationDocumentsDirectory();
+    final outDir = Directory('${baseDir.path}/PS4_PKG_Tools');
+    if (!await outDir.exists()) {
+      await outDir.create(recursive: true);
+    }
+    return outDir;
+  }
+
   Future<void> _mergeFiles() async {
     if (_selectedFiles.isEmpty) return;
 
@@ -274,9 +315,7 @@ class _MergerScreenState extends State<MergerScreen> {
     });
 
     try {
-      final outputDir = Directory('/sdcard/Download/PS4_PKG_Tools');
-      if (!await outputDir.exists()) await outputDir.create(recursive: true);
-
+      final outputDir = await _getOutputDir();
       final mergedFile = File("${outputDir.path}/merged_game.pkg");
       final sink = mergedFile.openWrite();
 
@@ -305,7 +344,7 @@ class _MergerScreenState extends State<MergerScreen> {
       await sink.close();
 
       setState(() {
-        _status = "تم دمج الملف بنجاح داخل مجلد Download/PS4_PKG_Tools!";
+        _status = "تم دمج الملف بنجاح في:\n${outputDir.path}";
         _progress = 1.0;
       });
     } catch (e) {
@@ -333,7 +372,7 @@ class _MergerScreenState extends State<MergerScreen> {
             const Divider(height: 30),
             LinearProgressIndicator(value: _progress),
             const SizedBox(height: 10),
-            Text(_status),
+            Text(_status, textAlign: TextAlign.center),
             const Spacer(),
             SizedBox(
               width: double.infinity,

@@ -24,26 +24,24 @@ jobs:
       run: |
         flutter create . --platforms=android --org=com.ps4pkg.studio
 
-    - name: Configure Android Permissions & Gradle Properties
+    - name: Fix CompileSDK Version & Inject Permissions
       run: |
+        GRADLE_FILE="android/app/build.gradle"
         MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
-        GRADLE_PROPS="android/gradle.properties"
 
-        # إضافة إلغاء فحص تعارض AAR وتثبيت إصدار compileSdk
-        echo "android.suppressUnsupportedCompileSdk=36" >> $GRADLE_PROPS
-        echo "android.useAndroidX=true" >> $GRADLE_PROPS
-        echo "android.enableJetifier=true" >> $GRADLE_PROPS
+        # رفع compileSdk إلى 36
+        sed -i 's/compileSdkVersion .*/compileSdkVersion 36/' $GRADLE_FILE || true
+        sed -i 's/compileSdk .*/compileSdk = 36/' $GRADLE_FILE || true
 
-        # حقن الأذونات
+        # حقن أذونات التخزين للإصدارات المختلفة
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>' $MANIFEST_PATH
         sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' $MANIFEST_PATH
 
     - name: Get Dependencies
       run: flutter pub get
 
-    - name: Build APK with CompileSDK 36
-      run: |
-        flutter build apk --release --extra-build-args="-Pandroid.compileSdkVersion=36"
+    - name: Build APK Release
+      run: flutter build apk --release
 
     - uses: actions/upload-artifact@v4
       with:
