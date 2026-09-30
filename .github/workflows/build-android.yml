@@ -23,10 +23,21 @@ jobs:
       - name: Generate Native Android Project
         run: flutter create . --platforms=android --org=com.ps4pkg.studio
 
-      - name: Force compileSdk 36
+      - name: Force compileSdk 36 on all dependencies
         run: |
-          find android/ -name "build.gradle" -exec sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/g' {} +
-          find android/ -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/g' {} +
+          cat << 'GRADLE_EOF' >> android/build.gradle
+
+          subprojects {
+              subproject ->
+                  afterEvaluate {
+                      if (subproject.hasProperty('android')) {
+                          subproject.android {
+                              compileSdkVersion 36
+                          }
+                      }
+                  }
+          }
+          GRADLE_EOF
 
       - name: Accept Android Licenses
         run: yes | flutter doctor --android-licenses || true
