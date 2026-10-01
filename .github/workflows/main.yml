@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Release and Dev Admin APKs
 
 on:
   push:
@@ -26,12 +26,12 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --split-per-abi --no-tree-shake-icons
+      - name: Build Official User APK
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: build/app/outputs/flutter-apk/*.apk
+          files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

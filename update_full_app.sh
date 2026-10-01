@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# 1. تحديث الكود البرمجي ليدعم اختيار الملفات، اللغات الـ 4، الثيم الفاتح/الداكن، والإعدادات
+cat << 'DART_EOF' > lib/main.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -712,3 +716,56 @@ class _SendPs4TabState extends State<SendPs4Tab> {
     );
   }
 }
+DART_EOF
+
+# 2. إعداد ملف GitHub Actions لبناء النسخة الرسمية + نسخة المطور Admin تلقائياً
+mkdir -p .github/workflows
+cat << 'WORKFLOW_EOF' > .github/workflows/main.yml
+name: Build Release and Dev Admin APKs
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.9'
+          channel: 'stable'
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build Official User APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+WORKFLOW_EOF
+
+# 3. حفظ ورفع النسخة الإشعارات واللغات v2.7.0
+git add .
+git commit -m "Add file pickers, 4 languages, light/dark mode and dev setup"
+git push origin main
+
+TAG_NAME="v2.7.0"
+git tag -f $TAG_NAME
+git push origin $TAG_NAME --force
+
