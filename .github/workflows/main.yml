@@ -14,24 +14,24 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
+          flutter-version: '3.16.9'
           channel: 'stable'
 
-      - name: Install Dependencies
+      - name: Get Dependencies
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --split-per-abi --no-tree-shake-icons
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: build/app/outputs/flutter-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
