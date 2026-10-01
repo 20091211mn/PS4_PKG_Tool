@@ -1,9 +1,10 @@
-name: Build Release and Dev Admin APKs
+name: Build All APKs (Artifacts)
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+      - master
 
 jobs:
   build:
@@ -20,18 +21,22 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.9'
           channel: 'stable'
 
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build Official User APK
-        run: flutter build apk --release --no-tree-shake-icons
+      - name: Build Official and Dev APKs
+        run: flutter build apk --flavor official --release && flutter build apk --flavor dev --release
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload Official APK
+        uses: actions/upload-artifact@v4
         with:
-          files: build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: Official-User-APK
+          path: build/app/outputs/flutter-apk/app-official-release.apk
+
+      - name: Upload Dev Admin APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Developer-Admin-APK
+          path: build/app/outputs/flutter-apk/app-dev-release.apk
