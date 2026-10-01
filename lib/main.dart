@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:file_picker/file_picker.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +15,7 @@ class PS4PkgStudioApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'تقسيم ملفات PKG',
+      title: 'PKG تقسيم ملفات',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF121216),
@@ -79,7 +80,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
 }
 
 // ----------------------------------------------------
-// 1. تبويب التقسيم (طابق الصورة المرفقة)
+// 1. تبويب التقسيم
 // ----------------------------------------------------
 class SplitTab extends StatefulWidget {
   const SplitTab({super.key});
@@ -91,6 +92,7 @@ class SplitTab extends StatefulWidget {
 class _SplitTabState extends State<SplitTab> {
   final TextEditingController _partsController = TextEditingController(text: '4');
   String _selectedFilePath = '';
+  String _selectedFileName = '';
   String _selectedSpeed = 'أقصى سرعة (مفتوح)';
   String _statusMessage = 'للبدء اختر ملف PKG';
   bool _isProcessing = false;
@@ -102,83 +104,92 @@ class _SplitTabState extends State<SplitTab> {
     'منخفضة (10 MB/s)',
   ];
 
-  Future<void> _pickFile() async {
+  Future<void> _requestPermissions() async {
     if (Platform.isAndroid) {
-      await [Permission.storage, Permission.manageExternalStorage].request();
+      await Permission.storage.request();
+      await Permission.manageExternalStorage.request();
     }
-    // مسار افتراضي للتجربة على الأندرويد
-    setState(() {
-      _selectedFilePath = '/storage/emulated/0/Download/game.pkg';
-      _statusMessage = 'تم اختيار الملف جاهز للتقسيم';
-    });
+  }
+
+  Future<void> _pickFile() async {
+    await _requestPermissions();
+    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.any);
+
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _selectedFilePath = result.files.single.path!;
+        _selectedFileName = result.files.single.name;
+        _statusMessage = 'تم اختيار الملف جاهز للتقسيم';
+      });
+    }
   }
 
   Future<void> _startSplit() async {
     if (_selectedFilePath.isEmpty) {
-      setState(() {
-        _statusMessage = 'يرجى اختيار ملف PKG أولاً!';
-      });
+      setState(() => _statusMessage = 'يرجى اختيار ملف PKG أولاً!');
       return;
     }
 
-    final file = File(_selectedFilePath);
-    if (!await file.exists()) {
-      setState(() {
-        _statusMessage = 'الملف المحدد غير موجود في الذاكرة';
-      });
+    final inputFile = File(_selectedFilePath);
+    if (!await inputFile.exists()) {
+      setState(() => _statusMessage = 'الملف غير موجود في الذاكرة');
       return;
     }
 
     final partsCount = int.tryParse(_partsController.text.trim()) ?? 4;
+    if (partsCount <= 1) {
+      setState(() => _statusMessage = 'يرجى تحديد عدد أجزاء أكبر من 1');
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
       _progress = 0.0;
-      _statusMessage = 'جاري تقسيم الملف إلى $partsCount أجزاء...';
+      _statusMessage = 'جاري التقسيم...';
     });
 
     try {
-      final totalBytes = await file.length();
-      final chunkSize = (totalBytes / partsCount).ceil();
+      final totalBytes = await inputFile.length();
+      final partSize = (totalBytes / partsCount).ceil();
 
-      final inputStream = file.openRead();
-      int partIndex = 0;
-      int bytesWrittenCurrentPart = 0;
-      int totalBytesRead = 0;
+      final RandomAccessFile reader = await inputFile.open(mode: FileMode.read);
+      int bytesReadTotal = 0;
 
-      IOSink? currentSink;
+      for (int i = 0; i < partsCount; i++) {
+        final partPath = '$_selectedFilePath.part${i + 1}';
+        final partFile = File(partPath);
+        final RandomAccessFile writer = await partFile.open(mode: FileMode.write);
 
-      await for (List<int> chunk in inputStream) {
-        if (currentSink == null || bytesWrittenCurrentPart >= chunkSize) {
-          if (currentSink != null) {
-            await currentSink.flush();
-            await currentSink.close();
-          }
-          final partPath = '$_selectedFilePath.part$partIndex';
-          currentSink = File(partPath).openWrite();
-          partIndex++;
-          bytesWrittenCurrentPart = 0;
+        int bytesWrittenForPart = 0;
+        final bufferSize = 1024 * 1024; // 1MB Buffer للسرعة
+
+        while (bytesWrittenForPart < partSize && bytesReadTotal < totalBytes) {
+          int remainingForPart = partSize - bytesWrittenForPart;
+          int remainingForTotal = totalBytes - bytesReadTotal;
+          int toRead = remainingForPart < remainingForTotal ? remainingForPart : remainingForTotal;
+          if (toRead > bufferSize) toRead = bufferSize;
+
+          List<int> buffer = await reader.read(toRead);
+          if (buffer.isEmpty) break;
+
+          await writer.writeFrom(buffer);
+          bytesWrittenForPart += buffer.length;
+          bytesReadTotal += buffer.length;
+
+          setState(() {
+            _progress = bytesReadTotal / totalBytes;
+          });
         }
-
-        currentSink.add(chunk);
-        bytesWrittenCurrentPart += chunk.length;
-        totalBytesRead += chunk.length;
-
-        setState(() {
-          _progress = totalBytesRead / totalBytes;
-        });
+        await writer.close();
       }
-
-      if (currentSink != null) {
-        await currentSink.flush();
-        await currentSink.close();
-      }
+      await reader.close();
 
       setState(() {
-        _statusMessage = 'تم تقسيم الملف بنجاح إلى $partIndex أجزاء!';
+        _statusMessage = 'تم تقسيم الملف بنجاح إلى $partsCount أجزاء!';
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'حدث خطأ أثناء التقسيم: $e';
+        _statusMessage = 'خطأ أثناء التقسيم: $e';
       });
     } finally {
       setState(() {
@@ -201,7 +212,6 @@ class _SplitTabState extends State<SplitTab> {
           ),
           const SizedBox(height: 25),
 
-          // زر اختيار ملف من الذاكرة
           Center(
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
@@ -219,13 +229,12 @@ class _SplitTabState extends State<SplitTab> {
           ),
           const SizedBox(height: 8),
           Text(
-            _selectedFilePath.isEmpty ? 'لم يتم اختيار ملف' : _selectedFilePath,
+            _selectedFileName.isEmpty ? 'لم يتم اختيار ملف' : _selectedFileName,
             style: const TextStyle(color: Colors.grey, fontSize: 12),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 25),
 
-          // حقل عدد الأجزاء
           TextField(
             controller: _partsController,
             keyboardType: TextInputType.number,
@@ -240,7 +249,6 @@ class _SplitTabState extends State<SplitTab> {
           ),
           const SizedBox(height: 20),
 
-          // تحديد السرعة
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -264,7 +272,6 @@ class _SplitTabState extends State<SplitTab> {
           ),
           const SizedBox(height: 20),
 
-          // شريط التقدم إن وجد
           if (_isProcessing)
             LinearProgressIndicator(value: _progress, color: const Color(0xFF6C5CE7)),
 
@@ -277,7 +284,6 @@ class _SplitTabState extends State<SplitTab> {
 
           const Spacer(),
 
-          // زر بدء التقسيم العريض السفلي
           SizedBox(
             height: 50,
             child: ElevatedButton(
@@ -316,29 +322,55 @@ class _MergeTabState extends State<MergeTab> {
 
   Future<void> _startMerge() async {
     final basePath = _pathController.text.trim();
+    if (basePath.isEmpty) {
+      setState(() => _status = 'يرجى كتابة أو تحديد مسار الملف الأساسي');
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
-      _status = 'جاري الدمج...';
+      _status = 'جاري البحث عن الأجزاء ودمجها...';
     });
 
     try {
       final outputFile = File('${basePath}_merged.pkg');
-      final outputSink = outputFile.openWrite();
-      int index = 0;
+      final RandomAccessFile writer = await outputFile.open(mode: FileMode.write);
+      int mergedCount = 0;
 
-      while (true) {
-        final partFile = File('$basePath.part$index');
-        if (!await partFile.exists()) break;
+      for (int i = 1; i <= 100; i++) {
+        File partFile = File('$basePath.part$i');
+        if (!await partFile.exists()) {
+          if (i == 1) {
+            partFile = File('$basePath.part0');
+            if (!await partFile.exists()) break;
+          } else {
+            break;
+          }
+        }
 
-        await outputSink.addStream(partFile.openRead());
-        index++;
+        final RandomAccessFile reader = await partFile.open(mode: FileMode.read);
+        final bufferSize = 1024 * 1024; // 1MB Buffer
+        int length = await partFile.length();
+        int readBytes = 0;
+
+        while (readBytes < length) {
+          int toRead = (length - readBytes) > bufferSize ? bufferSize : (length - readBytes);
+          List<int> buffer = await reader.read(toRead);
+          if (buffer.isEmpty) break;
+          await writer.writeFrom(buffer);
+          readBytes += buffer.length;
+        }
+
+        await reader.close();
+        mergedCount++;
       }
 
-      await outputSink.flush();
-      await outputSink.close();
+      await writer.close();
 
       setState(() {
-        _status = index > 0 ? 'تم دمج $index جزءاً بنجاح!' : 'لم يتم العثور على أجزاء للدمج.';
+        _status = mergedCount > 0
+            ? 'تم دمج $mergedCount أجزاء بنجاح!'
+            : 'لم يتم العثور على أجزاء مجاورة بهذا الاسم!';
       });
     } catch (e) {
       setState(() => _status = 'خطأ أثناء الدمج: $e');
@@ -354,7 +386,7 @@ class _MergeTabState extends State<MergeTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('دمج أجزاء PKG',
+          const Text('PKG دمج أجزاء',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               textAlign: TextAlign.right),
           const SizedBox(height: 20),
