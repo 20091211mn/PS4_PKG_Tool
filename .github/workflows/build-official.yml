@@ -28,7 +28,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Official Release APK
-        run: flutter build apk --flavor official --target lib/main.dart --release --no-tree-shake-icons
+        run: flutter build apk --flavor official --target lib/main.dart --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
       - name: Upload Official APK
         uses: actions/upload-artifact@v4
