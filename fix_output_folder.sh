@@ -1,3 +1,6 @@
+#!/bin/bash
+
+cat << 'DART_EOF' > lib/main.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -535,3 +538,14 @@ class _SendPs4TabState extends State<SendPs4Tab> {
     );
   }
 }
+DART_EOF
+
+# رفع التغييرات تلقائياً إلى GitHub وإنشاء الإصدار v2.4.0
+git add .
+git commit -m "Set output directory to PS4_PKG_Tools and add settings icon"
+git push origin main
+
+TAG_NAME="v2.4.0"
+git tag -f $TAG_NAME
+git push origin $TAG_NAME --force
+
