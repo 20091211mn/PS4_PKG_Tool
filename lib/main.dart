@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -7,67 +8,93 @@ void main() {
   runApp(const PS4PkgStudioApp());
 }
 
-class PS4PkgStudioApp extends StatefulWidget {
+class PS4PkgStudioApp extends StatelessWidget {
   const PS4PkgStudioApp({super.key});
-
-  static _PS4PkgStudioAppState of(BuildContext context) =>
-      context.findAncestorStateOfType<_PS4PkgStudioAppState>()!;
-
-  @override
-  State<PS4PkgStudioApp> createState() => _PS4PkgStudioAppState();
-}
-
-class _PS4PkgStudioAppState extends State<PS4PkgStudioApp> {
-  ThemeMode _themeMode = ThemeMode.dark;
-  Locale _locale = const Locale('ar');
-
-  void toggleTheme(bool isDark) {
-    setState(() {
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
-    });
-  }
-
-  void changeLanguage(String langCode) {
-    setState(() {
-      _locale = Locale(langCode);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PS4 PKG Studio',
+      title: 'تقسيم ملفات PKG',
       debugShowCheckedModeBanner: false,
-      themeMode: _themeMode,
-      locale: _locale,
-      theme: ThemeData(
-        brightness: Brightness.light,
-        primarySwatch: Colors.deepPurple,
-        useMaterial3: true,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF121216),
+        primaryColor: const Color(0xFF6C5CE7),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF6C5CE7),
+          surface: Color(0xFF1E1E24),
+        ),
       ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: Colors.deepPurple,
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        useMaterial3: true,
-      ),
-      home: const OriginalStudioUI(),
+      home: const MainTabScreen(),
     );
   }
 }
 
-class OriginalStudioUI extends StatefulWidget {
-  const OriginalStudioUI({super.key});
+class MainTabScreen extends StatefulWidget {
+  const MainTabScreen({super.key});
 
   @override
-  State<OriginalStudioUI> createState() => _OriginalStudioUIState();
+  State<MainTabScreen> createState() => _MainTabScreenState();
 }
 
-class _OriginalStudioUIState extends State<OriginalStudioUI> {
+class _MainTabScreenState extends State<MainTabScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = const [
+    SplitTab(),
+    MergeTab(),
+    SendPs4Tab(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(child: _screens[_currentIndex]),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        backgroundColor: const Color(0xFF18181C),
+        selectedItemColor: const Color(0xFF9D84FF),
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.call_split),
+            label: 'تقسيم',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.merge_type),
+            label: 'دمج',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.send),
+            label: 'نقل لـ PS4',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------
+// 1. تبويب التقسيم (طابق الصورة المرفقة)
+// ----------------------------------------------------
+class SplitTab extends StatefulWidget {
+  const SplitTab({super.key});
+
+  @override
+  State<SplitTab> createState() => _SplitTabState();
+}
+
+class _SplitTabState extends State<SplitTab> {
   final TextEditingController _partsController = TextEditingController(text: '4');
+  String _selectedFilePath = '';
   String _selectedSpeed = 'أقصى سرعة (مفتوح)';
-  String _statusMessage = '';
+  String _statusMessage = 'للبدء اختر ملف PKG';
   bool _isProcessing = false;
+  double _progress = 0.0;
 
   final List<String> _speedOptions = [
     'أقصى سرعة (مفتوح)',
@@ -75,52 +102,83 @@ class _OriginalStudioUIState extends State<OriginalStudioUI> {
     'منخفضة (10 MB/s)',
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _requestStoragePermissions();
-  }
-
-  Future<void> _requestStoragePermissions() async {
+  Future<void> _pickFile() async {
     if (Platform.isAndroid) {
-      await [
-        Permission.storage,
-        Permission.manageExternalStorage,
-      ].request();
+      await [Permission.storage, Permission.manageExternalStorage].request();
     }
+    // مسار افتراضي للتجربة على الأندرويد
+    setState(() {
+      _selectedFilePath = '/storage/emulated/0/Download/game.pkg';
+      _statusMessage = 'تم اختيار الملف جاهز للتقسيم';
+    });
   }
 
-  // استخدام مسار التنزيلات الصحيح بدلاً من /sdcard المرفوض من أندرويد
-  String get _workingPath {
-    if (Platform.isAndroid) {
-      return '/storage/emulated/0/Download';
+  Future<void> _startSplit() async {
+    if (_selectedFilePath.isEmpty) {
+      setState(() {
+        _statusMessage = 'يرجى اختيار ملف PKG أولاً!';
+      });
+      return;
     }
-    return Directory.current.path;
-  }
 
-  Future<void> _startProcess() async {
-    await _requestStoragePermissions();
+    final file = File(_selectedFilePath);
+    if (!await file.exists()) {
+      setState(() {
+        _statusMessage = 'الملف المحدد غير موجود في الذاكرة';
+      });
+      return;
+    }
 
+    final partsCount = int.tryParse(_partsController.text.trim()) ?? 4;
     setState(() {
       _isProcessing = true;
-      _statusMessage = '';
+      _progress = 0.0;
+      _statusMessage = 'جاري تقسيم الملف إلى $partsCount أجزاء...';
     });
 
     try {
-      final saveDir = Directory(_workingPath);
-      if (!await saveDir.exists()) {
-        await saveDir.create(recursive: true);
+      final totalBytes = await file.length();
+      final chunkSize = (totalBytes / partsCount).ceil();
+
+      final inputStream = file.openRead();
+      int partIndex = 0;
+      int bytesWrittenCurrentPart = 0;
+      int totalBytesRead = 0;
+
+      IOSink? currentSink;
+
+      await for (List<int> chunk in inputStream) {
+        if (currentSink == null || bytesWrittenCurrentPart >= chunkSize) {
+          if (currentSink != null) {
+            await currentSink.flush();
+            await currentSink.close();
+          }
+          final partPath = '$_selectedFilePath.part$partIndex';
+          currentSink = File(partPath).openWrite();
+          partIndex++;
+          bytesWrittenCurrentPart = 0;
+        }
+
+        currentSink.add(chunk);
+        bytesWrittenCurrentPart += chunk.length;
+        totalBytesRead += chunk.length;
+
+        setState(() {
+          _progress = totalBytesRead / totalBytes;
+        });
       }
 
-      // محاكاة أو تنفيذ عملية المعالجة في المسار الصحيح
-      await Future.delayed(const Duration(seconds: 1));
-      
+      if (currentSink != null) {
+        await currentSink.flush();
+        await currentSink.close();
+      }
+
       setState(() {
-        _statusMessage = 'تمت العملية بنجاح في المسار: $_workingPath';
+        _statusMessage = 'تم تقسيم الملف بنجاح إلى $partIndex أجزاء!';
       });
     } catch (e) {
       setState(() {
-        _statusMessage = 'خطأ: $e';
+        _statusMessage = 'حدث خطأ أثناء التقسيم: $e';
       });
     } finally {
       setState(() {
@@ -131,170 +189,298 @@ class _OriginalStudioUIState extends State<OriginalStudioUI> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'تقسيم ملفات PKG',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.right,
+          ),
+          const SizedBox(height: 25),
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isAr ? 'PS4 PKG Studio' : 'PS4 PKG Studio'),
-        backgroundColor: Colors.deepPurple.shade900,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: isAr ? 'الإعدادات' : 'Settings',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
+          // زر اختيار ملف من الذاكرة
+          Center(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2A2A32),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: _pickFile,
+              icon: const Icon(Icons.folder_outlined),
+              label: const Text('اختيار ملف PKG من الذاكرة'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _selectedFilePath.isEmpty ? 'لم يتم اختيار ملف' : _selectedFilePath,
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 25),
+
+          // حقل عدد الأجزاء
+          TextField(
+            controller: _partsController,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.right,
+            decoration: InputDecoration(
+              labelText: 'عدد الأجزاء',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // تحديد السرعة
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              DropdownButton<String>(
+                value: _selectedSpeed,
+                dropdownColor: const Color(0xFF1E1E24),
+                underline: Container(height: 1, color: Colors.grey),
+                items: _speedOptions.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value, style: const TextStyle(color: Colors.white)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedSpeed = val);
+                },
+              ),
+              const SizedBox(width: 10),
+              const Text('تحديد السرعة: ', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // شريط التقدم إن وجد
+          if (_isProcessing)
+            LinearProgressIndicator(value: _progress, color: const Color(0xFF6C5CE7)),
+
+          const SizedBox(height: 10),
+          Text(
+            _statusMessage,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+
+          const Spacer(),
+
+          // زر بدء التقسيم العريض السفلي
+          SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF23232C),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+              ),
+              onPressed: _isProcessing ? null : _startSplit,
+              child: const Text('بدء التقسيم', style: TextStyle(fontSize: 16)),
+            ),
           ),
         ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 10),
-            
-            // 1. مربع إدخال الأجزاء (الموجود في الصورة)
-            TextField(
-              controller: _partsController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: isAr ? 'عدد الأجزاء' : 'Number of Parts',
-                border: const OutlineInputBorder(),
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // 2. القائمة المنسدلة للسرعة (الموجودة في الصورة)
-            Row(
-              children: [
-                Text(
-                  isAr ? 'تحديد السرعة: ' : 'Speed Limit: ',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButton<String>(
-                    value: _selectedSpeed,
-                    isExpanded: true,
-                    items: _speedOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value, style: const TextStyle(color: Colors.amberAccent)),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _selectedSpeed = newValue;
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 25),
-
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              onPressed: _isProcessing ? null : _startProcess,
-              child: _isProcessing
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : Text(
-                      isAr ? 'بدء العملية' : 'Start Process',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-            ),
-            const SizedBox(height: 30),
-
-            // 3. خانة عرض الأخطاء/الحالة (الموجودة أسفل الصورة)
-            if (_statusMessage.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black45,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _statusMessage.startsWith('خطأ') ? Colors.red : Colors.green,
-                  ),
-                ),
-                child: Text(
-                  _statusMessage,
-                  style: TextStyle(
-                    color: _statusMessage.startsWith('خطأ') ? Colors.redAccent : Colors.lightGreenAccent,
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
 }
 
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+// ----------------------------------------------------
+// 2. تبويب الدمج
+// ----------------------------------------------------
+class MergeTab extends StatefulWidget {
+  const MergeTab({super.key});
+
+  @override
+  State<MergeTab> createState() => _MergeTabState();
+}
+
+class _MergeTabState extends State<MergeTab> {
+  final TextEditingController _pathController =
+      TextEditingController(text: '/storage/emulated/0/Download/game.pkg');
+  String _status = 'جاهز لدمج الأجزاء';
+  bool _isProcessing = false;
+
+  Future<void> _startMerge() async {
+    final basePath = _pathController.text.trim();
+    setState(() {
+      _isProcessing = true;
+      _status = 'جاري الدمج...';
+    });
+
+    try {
+      final outputFile = File('${basePath}_merged.pkg');
+      final outputSink = outputFile.openWrite();
+      int index = 0;
+
+      while (true) {
+        final partFile = File('$basePath.part$index');
+        if (!await partFile.exists()) break;
+
+        await outputSink.addStream(partFile.openRead());
+        index++;
+      }
+
+      await outputSink.flush();
+      await outputSink.close();
+
+      setState(() {
+        _status = index > 0 ? 'تم دمج $index جزءاً بنجاح!' : 'لم يتم العثور على أجزاء للدمج.';
+      });
+    } catch (e) {
+      setState(() => _status = 'خطأ أثناء الدمج: $e');
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final appState = PS4PkgStudioApp.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isAr ? 'الإعدادات' : 'Settings'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SwitchListTile(
-            title: Text(isAr ? 'الوضع الداكن (Dark Mode)' : 'Dark Mode'),
-            subtitle: Text(isAr ? 'التبديل بين الثيم المظلم والفاتح' : 'Switch dark/light theme'),
-            value: isDark,
-            onChanged: (val) => appState.toggleTheme(val),
-          ),
-          const Divider(),
-          ListTile(
-            title: Text(isAr ? 'اللغة (Language)' : 'Language'),
-            subtitle: Text(isAr ? 'العربية' : 'English'),
-            trailing: DropdownButton<String>(
-              value: Localizations.localeOf(context).languageCode,
-              items: const [
-                DropdownMenuItem(value: 'ar', child: Text('العربية')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-              ],
-              onChanged: (lang) {
-                if (lang != null) appState.changeLanguage(lang);
-              },
+          const Text('دمج أجزاء PKG',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.right),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _pathController,
+            textAlign: TextAlign.right,
+            decoration: const InputDecoration(
+              labelText: 'مسار الملف الأساسي',
+              border: OutlineInputBorder(),
             ),
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.security, color: Colors.teal),
-            title: Text(isAr ? 'طلب أذونات الذاكرة' : 'Request Permissions'),
-            subtitle: Text(isAr ? 'الوصول الكامل للذاكرة لتجنب خطأ Creation failed' : 'Fix Creation failed error'),
-            onTap: () async {
-              await [
-                Permission.storage,
-                Permission.manageExternalStorage,
-              ].request();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(isAr ? 'تم تحديث الأذونات!' : 'Permissions Updated!')),
-                );
-              }
-            },
+          const SizedBox(height: 20),
+          Text(_status, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+          const Spacer(),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF23232C),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              ),
+              onPressed: _isProcessing ? null : _startMerge,
+              child: const Text('بدء الدمج'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------
+// 3. تبويب الإرسال إلى PS4
+// ----------------------------------------------------
+class SendPs4Tab extends StatefulWidget {
+  const SendPs4Tab({super.key});
+
+  @override
+  State<SendPs4Tab> createState() => _SendPs4TabState();
+}
+
+class _SendPs4TabState extends State<SendPs4Tab> {
+  final TextEditingController _ipController = TextEditingController(text: '192.168.1.50');
+  final TextEditingController _fileController =
+      TextEditingController(text: '/storage/emulated/0/Download/game.pkg');
+  String _status = 'جاهز للإرسال إلى PS4';
+  bool _isProcessing = false;
+
+  Future<void> _sendToPs4() async {
+    final ip = _ipController.text.trim();
+    final filePath = _fileController.text.trim();
+
+    setState(() {
+      _isProcessing = true;
+      _status = 'جاري الإرسال إلى $ip...';
+    });
+
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+      final request = await client.postUrl(Uri.parse('http://$ip:12800/api/install'));
+      request.headers.set('Content-Type', 'application/json');
+
+      final payload = jsonEncode({
+        "type": "direct",
+        "packages": [Uri.file(filePath).toString()]
+      });
+
+      request.write(payload);
+      final response = await request.close();
+
+      setState(() {
+        _status = response.statusCode == 200
+            ? 'تم إرسال حزمة التثبيت إلى PS4 بنجاح!'
+            : 'استجاب الجهاز برمز: ${response.statusCode}';
+      });
+      client.close();
+    } catch (e) {
+      setState(() => _status = 'فشل الاتصال بـ PS4: $e');
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('نقل لـ PS4',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.right),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _ipController,
+            keyboardType: TextInputType.datetime,
+            textAlign: TextAlign.right,
+            decoration: const InputDecoration(
+              labelText: 'عنوان IP الخاص بـ PS4',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 15),
+          TextField(
+            controller: _fileController,
+            textAlign: TextAlign.right,
+            decoration: const InputDecoration(
+              labelText: 'مسار ملف الـ PKG',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(_status, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+          const Spacer(),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF23232C),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              ),
+              onPressed: _isProcessing ? null : _sendToPs4,
+              child: const Text('إرسال إلى PS4'),
+            ),
           ),
         ],
       ),
