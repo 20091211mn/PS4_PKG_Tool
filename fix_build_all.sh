@@ -1,3 +1,39 @@
+#!/bin/bash
+
+# 1. إعداد ملف gradle.properties لتوفير ذاكرة كافية أثناء البناء
+cat << 'GRADLE_EOF' > android/gradle.properties
+org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
+android.useAndroidX=true
+android.enableJetifier=true
+GRADLE_EOF
+
+# 2. إعداد pubspec.yaml المضمون والمستقر
+cat << 'PUBSPEC_EOF' > pubspec.yaml
+name: ps4_pkg_tool
+description: "A new Flutter project for PS4 PKG Management."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  permission_handler: ^11.3.1
+  file_picker: ^8.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+PUBSPEC_EOF
+
+# 3. التأكد من إنشاء main.dart المستقر بالواجهة المطلوبة
+cat << 'DART_EOF' > lib/main.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -510,3 +546,56 @@ class _SendPs4TabState extends State<SendPs4Tab> {
     );
   }
 }
+DART_EOF
+
+# 4. تحديث ملف البناء لـ GitHub Actions لدعم `--no-tree-shake-icons` لمنع مشاكل الذاكرة
+mkdir -p .github/workflows
+cat << 'WORKFLOW_EOF' > .github/workflows/main.yml
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.6'
+          channel: 'stable'
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+WORKFLOW_EOF
+
+# 5. رفع التغييرات تلقائياً وإنشاء الإصدار v2.3.0
+git add .
+git commit -m "Fix memory limits and workflow setup for release"
+git push origin main
+
+TAG_NAME="v2.3.0"
+git tag -f $TAG_NAME
+git push origin $TAG_NAME --force
+

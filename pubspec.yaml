@@ -1,8 +1,6 @@
-name: ps4_pkg_studio
-description: PS4 PKG Studio Splitter & Tools
-
+name: ps4_pkg_tool
+description: "A new Flutter project for PS4 PKG Management."
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
@@ -12,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   permission_handler: ^11.3.1
+  file_picker: ^8.0.0
 
 dev_dependencies:
   flutter_test:
