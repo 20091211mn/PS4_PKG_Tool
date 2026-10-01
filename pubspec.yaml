@@ -1,6 +1,7 @@
 name: ps4_pkg_tool
-description: "A new Flutter project for PS4 PKG Management."
+description: "A Flutter application for managing PS4 PKG files."
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
@@ -9,8 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  permission_handler: ^11.3.1
-  file_picker: ^8.0.0
+  cupertino_icons: ^1.0.8
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:

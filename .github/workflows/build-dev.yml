@@ -24,11 +24,13 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Get Dependencies
-        run: flutter pub get
+      - name: Clean & Get Dependencies
+        run: |
+          flutter clean
+          flutter pub get
 
       - name: Build Dev Admin Release APK
-        run: flutter build apk --flavor dev --target lib/main.dart --release --no-tree-shake-icons --android-skip-build-dependency-validation
+        run: flutter build apk --flavor dev --target lib/main.dart --release --no-tree-shake-icons
 
       - name: Upload Dev Admin APK
         uses: actions/upload-artifact@v4
