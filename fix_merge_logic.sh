@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# 1. تحديث دالة الدمج داخل ملف lib/main.dart بالكامل لحل مشكلة الدمج
+cat << 'DART_EOF' > lib/main.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -746,3 +750,10 @@ class _SendPs4TabState extends State<SendPs4Tab> {
     );
   }
 }
+DART_EOF
+
+# 2. رفع التعديلات المحدثة مباشرة إلى GitHub ليبدأ البناء التلقائي
+git add .
+git commit -m "Update MergeTab logic to fully support multi-part file selection and correct merging stream"
+git push origin main || git push origin master
+
