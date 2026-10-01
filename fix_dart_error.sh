@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# إصلاح الخطأ في ملف lib/main.dart بتصحيح CrossAxisAlignment
+cat << 'DART_EOF' > lib/main.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -535,3 +539,14 @@ class _SendPs4TabState extends State<SendPs4Tab> {
     );
   }
 }
+DART_EOF
+
+# رفع الإصدار الجديد v2.6.0
+git add .
+git commit -m "Fix CrossAxisAlignment.end in main.dart"
+git push origin main
+
+TAG_NAME="v2.6.0"
+git tag -f $TAG_NAME
+git push origin $TAG_NAME --force
+
