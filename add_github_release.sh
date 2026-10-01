@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# 1. تحديث workflow النسخة الرسمية ليشمل النشر التلقائي في Releases
+cat << 'OFFICIAL_EOF' > .github/workflows/build-official.yml
 name: Build and Release Official APK
 
 on:
@@ -53,3 +57,10 @@ jobs:
           files: build/app/outputs/flutter-apk/app-official-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+OFFICIAL_EOF
+
+# 2. دفع التعديلات إلى GitHub
+git add .
+git commit -m "Configure automated GitHub Releases deployment for official APK"
+git push origin main || git push origin master
+
