@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.ps4_pkg_tool"
-    compileSdk 34
+    compileSdk 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -38,7 +38,7 @@ android {
     defaultConfig {
         applicationId "com.example.ps4_pkg_tool"
         minSdk 21
-        targetSdk 34
+        targetSdk 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
@@ -49,13 +49,13 @@ android {
         official {
             dimension "app_type"
             applicationId "com.example.ps4_pkg_tool"
-            resValue "string", "app_name", "PS4 PKG Tool"
+            manifestPlaceholders = [app_name: "PS4 PKG Tool"]
         }
         dev {
             dimension "app_type"
             applicationId "com.example.ps4_pkg_tool.dev"
             applicationIdSuffix ".dev"
-            resValue "string", "app_name", "PS4 PKG Admin"
+            manifestPlaceholders = [app_name: "PS4 PKG Admin"]
         }
     }
 
