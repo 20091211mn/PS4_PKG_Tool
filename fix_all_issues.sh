@@ -1,3 +1,65 @@
+#!/bin/bash
+
+# 1. إعداد ملف build.gradle لفصل النسخة العامة عن نسخة المطور
+cat << 'GRADLE_EOF' > android/app/build.gradle
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace "com.example.ps4_pkg_tool"
+    compileSdk 34
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    defaultConfig {
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    flavorDimensions "app_type"
+
+    productFlavors {
+        official {
+            dimension "app_type"
+            applicationId "com.example.ps4_pkg_tool"
+            resValue "string", "app_name", "PS4 PKG Tool"
+        }
+        dev {
+            dimension "app_type"
+            applicationId "com.example.ps4_pkg_tool.dev"
+            applicationIdSuffix ".dev"
+            resValue "string", "app_name", "PS4 PKG Admin"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+GRADLE_EOF
+
+# 2. كود Flutter الرئيسي المحدث (يدعم اختيار أجزاء متعددة للدمج + اللغات + المظهر بدون تغيير التصميم)
+cat << 'DART_EOF' > lib/main.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -739,3 +801,81 @@ class _SendPs4TabState extends State<SendPs4Tab> {
     );
   }
 }
+DART_EOF
+
+# 3. إعداد GitHub Actions لتوليد النسختين معاً رفعهما في Artifacts
+mkdir -p .github/workflows
+cat << 'WORKFLOW_EOF' > .github/workflows/main.yml
+name: Build Official and Dev Admin APKs
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-official:
+    name: Build Official User APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build Official Release APK
+        run: flutter build apk --flavor official --target lib/main.dart --release --no-tree-shake-icons
+
+      - name: Upload Official APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Official-User-APK
+          path: build/app/outputs/flutter-apk/app-official-release.apk
+
+  build-dev:
+    name: Build Developer Admin APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build Dev Admin Release APK
+        run: flutter build apk --flavor dev --target lib/main.dart --release --no-tree-shake-icons
+
+      - name: Upload Dev Admin APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Developer-Admin-APK
+          path: build/app/outputs/flutter-apk/app-dev-release.apk
+WORKFLOW_EOF
+
+# 4. حفظ وتطبيق التعديلات على GitHub
+git add .
+git commit -m "Fix multi-file picker for merge and split official/dev builds"
+git push origin main || git push origin master
+

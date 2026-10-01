@@ -4,58 +4,36 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
-}
-
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
-}
-
-def flutterVersionName = localProperties.getProperty('flutter.versionName')
-if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
-}
-
 android {
     namespace "com.example.ps4_pkg_tool"
     compileSdk 34
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = '1.7'
-    }
-
-    sourceSets {
-        main.java.srcDirs += 'src/main/kotlin'
+        jvmTarget = '1.8'
     }
 
     defaultConfig {
-        applicationId "com.example.ps4_pkg_tool"
         minSdk 21
         targetSdk 34
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
+        versionCode 1
+        versionName "1.0.0"
     }
 
-    flavorDimensions "default"
+    flavorDimensions "app_type"
+
     productFlavors {
         official {
-            dimension "default"
+            dimension "app_type"
             applicationId "com.example.ps4_pkg_tool"
             resValue "string", "app_name", "PS4 PKG Tool"
         }
         dev {
-            dimension "default"
+            dimension "app_type"
             applicationId "com.example.ps4_pkg_tool.dev"
             applicationIdSuffix ".dev"
             resValue "string", "app_name", "PS4 PKG Admin"
@@ -65,6 +43,8 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
