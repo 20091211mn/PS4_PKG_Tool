@@ -1,4 +1,4 @@
-name: Build Official and Dev Admin APKs
+name: Build Developer Admin APK
 
 on:
   push:
@@ -7,35 +7,6 @@ on:
       - master
 
 jobs:
-  build-official:
-    name: Build Official User APK
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Get Dependencies
-        run: flutter pub get
-
-      - name: Build Official Release APK
-        run: flutter build apk --flavor official --target lib/main.dart --release --no-tree-shake-icons
-
-      - name: Upload Official APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Official-User-APK
-          path: build/app/outputs/flutter-apk/app-official-release.apk
-
   build-dev:
     name: Build Developer Admin APK
     runs-on: ubuntu-latest
