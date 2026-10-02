@@ -1,68 +1,37 @@
 import os
-import struct
-import hashlib
 import subprocess
 
-def merge_pkg_bash(input_pattern, output_pkg):
-    """دمج الأجزاء باستخدام أمر cat المباشر"""
-    try:
-        cmd = f"cat {input_pattern} > '{output_pkg}'"
-        subprocess.run(cmd, shell=True, check=True)
-        return True
-    except Exception as e:
-        print(f"Merge Error: {e}")
-        return False
-
-def split_pkg_bash(input_pkg, part_size_mb, output_prefix):
-    """تقسيم الملف باستخدام أمر split المباشر"""
-    try:
-        cmd = f"split -b {part_size_mb}M '{input_pkg}' '{output_prefix}.part_'"
-        subprocess.run(cmd, shell=True, check=True)
-        return True
-    except Exception as e:
-        print(f"Split Error: {e}")
-        return False
-
-def get_pkg_info(pkg_path):
-    """قراءة بيانات الهيدر واستخراج Title ID"""
-    if not os.path.exists(pkg_path):
+def get_pkg_info(file_path):
+    if not os.path.exists(file_path):
         return {"error": "File not found"}
-    try:
-        with open(pkg_path, 'rb') as f:
-            if f.read(4) != b'\x7fCNT':
-                return {"error": "Invalid PKG file"}
-            f.seek(0x010)
-            file_count = struct.unpack('>I', f.read(4))[0]
-            f.seek(0x018)
-            table_offset = struct.unpack('>I', f.read(4))[0]
-            
-            title_id = "Unknown"
-            f.seek(table_offset)
-            for _ in range(file_count):
-                entry_id = struct.unpack('>I', f.read(4))[0]
-                entry_offset = struct.unpack('>I', f.read(4))[0]
-                entry_size = struct.unpack('>I', f.read(4))[0]
-                f.read(4)
-                if entry_id == 0x1000:
-                    f.seek(entry_offset)
-                    param_data = f.read(entry_size)
-                    title_id = param_data.decode('utf-8', errors='ignore').strip('\x00')
-                    break
-            return {
-                "file_name": os.path.basename(pkg_path),
-                "file_size_gb": round(os.path.getsize(pkg_path) / (1024**3), 2),
-                "title_id": title_id if title_id else "CUSAXXXXX"
-            }
-    except Exception as e:
-        return {"error": str(e)}
+    file_size = os.path.getsize(file_path)
+    file_size_gb = file_size / (1024 * 1024 * 1024)
+    return {
+        "path": file_path,
+        "size_bytes": file_size,
+        "size_str": f"{file_size_gb:.2f} GB" if file_size_gb >= 1 else f"{file_size / (1024*1024):.2f} MB"
+    }
 
-def calculate_md5(file_path, chunk_size=8192):
-    """حساب MD5 للتحقق من سلامة الملف"""
-    md5_hash = hashlib.md5()
+def split_pkg_bash(file_path, output_dir=None, chunk_size="4G"):
+    if not os.path.exists(file_path):
+        return False
+    if not output_dir:
+        output_dir = os.path.dirname(file_path)
+    base_name = os.path.basename(file_path)
+    output_prefix = os.path.join(output_dir, f"{base_name}.part_")
+    cmd = ["split", "-b", chunk_size, "-d", file_path, output_prefix]
     try:
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(chunk_size), b""):
-                md5_hash.update(chunk)
-        return md5_hash.hexdigest()
-    except Exception:
-        return None
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return result.returncode == 0
+    except Exception as e:
+        print(f"Error splitting: {e}")
+        return False
+
+def merge_pkg_bash(pattern, output_path):
+    cmd = f"cat {pattern} > '{output_path}'"
+    try:
+        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return result.returncode == 0
+    except Exception as e:
+        print(f"Error merging: {e}")
+        return False
