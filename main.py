@@ -6,6 +6,7 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.clock import Clock
 
+# Request Storage Permissions on Android
 try:
     from android.permissions import request_permissions, Permission
     request_permissions([Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE])
@@ -33,7 +34,7 @@ class PKGToolUI(BoxLayout):
         self.padding = 30
         self.spacing = 15
 
-        # عنوان التطبيق
+        # App Title
         self.add_widget(Label(
             text="PS4 PKG Tool", 
             font_size=28, 
@@ -41,45 +42,45 @@ class PKGToolUI(BoxLayout):
             height=50
         ))
 
-        # زر رفع / اختيار الملف
+        # Select / Upload File Button
         self.pick_btn = Button(
-            text='رفع / اختيار ملف PKG',
+            text='Select / Upload PKG File',
             size_hint_y=None,
             height=55
         )
         self.pick_btn.bind(on_press=self.open_file_chooser)
         self.add_widget(self.pick_btn)
 
-        # خانة اسم الملف المستخرج والمفحوص
+        # Checked File Label
         self.file_label = Label(
-            text='اسم الملف: لم يتم اختيار ملف بعد',
+            text='File Name: No file selected',
             font_size=16,
             size_hint_y=None,
             height=40
         )
         self.add_widget(self.file_label)
 
-        # زر التقسيم
+        # Split Button
         self.split_btn = Button(
-            text='Split PKG (تقسيم)', 
+            text='Split PKG', 
             size_hint_y=None, 
             height=55
         )
         self.split_btn.bind(on_press=self.start_split)
         self.add_widget(self.split_btn)
 
-        # زر الدمج
+        # Merge Button
         self.merge_btn = Button(
-            text='Merge PKG Parts (دمج)', 
+            text='Merge PKG Parts', 
             size_hint_y=None, 
             height=55
         )
         self.merge_btn.bind(on_press=self.start_merge)
         self.add_widget(self.merge_btn)
 
-        # حالة العملية
+        # Status Label
         self.status_label = Label(
-            text='الحالة: جاهز', 
+            text='Status: Ready', 
             font_size=15
         )
         self.selected_file_path = ""
@@ -90,21 +91,21 @@ class PKGToolUI(BoxLayout):
             try:
                 filechooser.open_file(on_selection=self.on_file_selected)
             except Exception as e:
-                self.status_label.text = f"خطأ في فتح المستعرض: {e}"
+                self.status_label.text = f"Chooser Error: {e}"
         else:
-            self.status_label.text = "مستعرض الملفات غير مدعوم على الجهاز."
+            self.status_label.text = "File chooser not supported on this device."
 
     def on_file_selected(self, selection):
         if selection and len(selection) > 0:
             self.selected_file_path = selection[0]
             
-            # التحقق من اسم وصحة الملف فور الرفع
+            # Verify file name and integrity upon upload
             filename, check_status = verify_and_get_filename(self.selected_file_path)
             if filename:
-                self.file_label.text = f"اسم الملف: {filename}"
-                self.status_label.text = f"نتيجة الفحص: {check_status}"
+                self.file_label.text = f"File Name: {filename}"
+                self.status_label.text = f"Verification: {check_status}"
             else:
-                self.file_label.text = "اسم الملف: غير صالح"
+                self.file_label.text = "File Name: Invalid"
                 self.status_label.text = check_status
 
     def start_split(self, instance):
@@ -112,30 +113,30 @@ class PKGToolUI(BoxLayout):
 
     def _split_worker(self):
         if not self.selected_file_path or not os.path.exists(self.selected_file_path):
-            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'خطأ: يرجى رفع ملف صحيح أولاً!'))
+            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Error: Please select a valid file first!'))
             return
 
-        Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'جاري تقسيم الملف في الخلفية...'))
-        send_notification("PS4 PKG Tool", "جاري تقسيم ملف PKG...")
+        Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Splitting PKG file in background...'))
+        send_notification("PS4 PKG Tool", "Splitting PKG file...")
 
         success = split_pkg_bash(self.selected_file_path)
 
         if success:
-            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'تم التقسيم بنجاح!'))
-            send_notification("PS4 PKG Tool", "تم التقسيم بنجاح!")
+            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Split Completed Successfully!'))
+            send_notification("PS4 PKG Tool", "Split completed successfully!")
         else:
-            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'فشل التقسيم! تحقق من الأذونات المساحة.'))
+            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Split Failed! Check permissions/storage.'))
 
     def start_merge(self, instance):
         threading.Thread(target=self._merge_worker, daemon=True).start()
 
     def _merge_worker(self):
         if not self.selected_file_path:
-            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'خطأ: يرجى رفع جزء من الملف أولاً!'))
+            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Error: Please select a part file first!'))
             return
 
-        Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'جاري دمج الملفات...'))
-        send_notification("PS4 PKG Tool", "جاري دمج ملفات PKG...")
+        Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Merging PKG parts...'))
+        send_notification("PS4 PKG Tool", "Merging PKG parts...")
 
         file_path = self.selected_file_path
         if ".part_" in file_path:
@@ -149,10 +150,10 @@ class PKGToolUI(BoxLayout):
         success = merge_pkg_bash(pattern, output_pkg)
 
         if success:
-            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'تم دمج الملفات بنجاح!'))
-            send_notification("PS4 PKG Tool", "تم الدمج بنجاح!")
+            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Merge Completed Successfully!'))
+            send_notification("PS4 PKG Tool", "Merge completed successfully!")
         else:
-            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'فشل الدمج! تحقق من وجود باقي الأجزاء.'))
+            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Merge Failed! Check remaining parts.'))
 
 class PKGApp(App):
     def build(self):

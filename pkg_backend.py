@@ -3,29 +3,30 @@ import subprocess
 import hashlib
 
 def verify_and_get_filename(file_path):
-    """التحقق من صحة الملف واسمه وهل هو ملف PKG حقيقي وسليم"""
+    """Verify PKG file integrity, extract filename and check header."""
     if not os.path.exists(file_path):
-        return None, "الملف غير موجود!"
+        return None, "File does not exist!"
     
     file_name = os.path.basename(file_path)
     
-    # التحقق من الامتداد
+    # Extension Check
     if not file_name.lower().endswith(('.pkg', '.part_00', '.part_01', '.part_000')):
         if ".part_" not in file_name:
-            return file_name, "تحذير: امتداد الملف ليس PKG!"
+            return file_name, "Warning: Extension is not .pkg!"
 
-    # التحقق من إمكانية قراءة الهيدر (تأكيد أن الملف غير تالف)
+    # Header Integrity Check
     try:
         with open(file_path, "rb") as f:
             header = f.read(0x10)
             if len(header) < 0x10:
-                return file_name, "ملف تالف أو فارغ!"
+                return file_name, "Error: File is corrupted or empty!"
     except Exception as e:
-        return file_name, f"خطأ في قراءة الملف: {e}"
+        return file_name, f"Read error: {e}"
 
-    return file_name, "تم التحقق من الملف بنجاح ✓"
+    return file_name, "Verified Successfully ✓"
 
 def split_pkg_bash(file_path, output_dir=None, chunk_size="4G"):
+    """Split PKG file using high-performance bash system commands."""
     if not os.path.exists(file_path):
         return False
     if not output_dir:
@@ -41,6 +42,7 @@ def split_pkg_bash(file_path, output_dir=None, chunk_size="4G"):
         return False
 
 def merge_pkg_bash(pattern, output_path):
+    """Merge PKG parts using system cat utility."""
     cmd = f"cat {pattern} > '{output_path}'"
     try:
         result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
