@@ -27,7 +27,7 @@ class PKGToolUI(BoxLayout):
         self.padding = 30
         self.spacing = 20
 
-        # Title (نفس الواجهة تماماً)
+        # Title (نفس الواجهة الأصلية بدون تغيير)
         self.add_widget(Label(
             text="PS4 PKG Tool", 
             font_size=28, 
@@ -64,21 +64,21 @@ class PKGToolUI(BoxLayout):
         self.merge_btn.bind(on_press=self.start_merge)
         self.add_widget(self.merge_btn)
 
-        # Status Label (ستعرض تفاصيل الـ CUSA والـ MD5 والتقدم هنا)
+        # Status Label
         self.status_label = Label(
-            text='Status: Ready (Features: CUSA Header, MD5, Fast Split)', 
+            text='Status: Ready', 
             font_size=16
         )
         self.add_widget(self.status_label)
 
     def on_path_changed(self, instance, value):
-        """فحص الهيدر تلقائياً فور كتابة أو اختيار مسار الملف"""
+        """فحص CUSA وهيدر الملف تلقائياً فور إدخال المسار"""
         path = value.strip()
         if os.path.exists(path) and os.path.isfile(path):
             info = get_pkg_info(path)
-            cusa = info.get("cusa", "Unknown")
+            cusa = info.get("cusa", "غير معروف")
             size_str = info.get("size_str", "")
-            self.status_label.text = f"Detected | Size: {size_str} | CUSA: {cusa}"
+            self.status_label.text = f"File: {os.path.basename(path)} | Size: {size_str} | CUSA: {cusa}"
 
     def start_split(self, instance):
         threading.Thread(target=self._split_worker, daemon=True).start()
@@ -89,17 +89,17 @@ class PKGToolUI(BoxLayout):
             Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Error: Invalid file path!'))
             return
 
-        Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Splitting PKG in background with progress...'))
-        send_notification("PS4 PKG Tool", "جاري تقسيم ملف PKG...")
+        Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Splitting PKG in background...'))
+        send_notification("PS4 PKG Tool", "جاري تقسيم ملف PKG في الخلفية...")
 
         success = split_pkg_bash(file_path)
 
         if success:
             Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Split Completed Successfully!'))
-            send_notification("PS4 PKG Tool", "تم تقسيم الـ PKG بنجاح!")
+            send_notification("PS4 PKG Tool", "تم بنجاح تقسيم ملف الـ PKG!")
         else:
             Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Split Failed!'))
-            send_notification("PS4 PKG Tool", "فشلت عملية التقسيم!")
+            send_notification("PS4 PKG Tool", "حدث خطأ أثناء تقسيم الملف!")
 
     def start_merge(self, instance):
         threading.Thread(target=self._merge_worker, daemon=True).start()
@@ -111,7 +111,7 @@ class PKGToolUI(BoxLayout):
             return
 
         Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Merging PKG & Verifying MD5...'))
-        send_notification("PS4 PKG Tool", "جاري الدمج والتحقق من التجزئة...")
+        send_notification("PS4 PKG Tool", "جاري دمج ملفات PKG وفحص التجزئة...")
 
         if ".part_" in file_path:
             base_prefix = file_path.rsplit('.part_', 1)[0]
@@ -124,14 +124,14 @@ class PKGToolUI(BoxLayout):
         success = merge_pkg_bash(pattern, output_pkg)
 
         if success:
-            # التحقق من سلامة الملف المدمج عبر MD5
+            # التحقق الفعلي من صحة التجزئة MD5 بعد الدمج
             md5_hash = calculate_md5(output_pkg)
-            msg = f"Merge OK! MD5: {md5_hash[:8]}..." if md5_hash else "Merge Completed!"
-            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', msg))
-            send_notification("PS4 PKG Tool", "تم الدمج بنجاح وتم التحقق من سلامة الملف!")
+            status_msg = f"Merge OK! Hash: {md5_hash[:8]}..." if md5_hash else "Merge Completed Successfully!"
+            Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', status_msg))
+            send_notification("PS4 PKG Tool", "تم دمج الـ PKG والتحقق من سلامة الملف!")
         else:
             Clock.schedule_once(lambda dt: setattr(self.status_label, 'text', 'Merge Failed!'))
-            send_notification("PS4 PKG Tool", "فشلت عملية الدمج!")
+            send_notification("PS4 PKG Tool", "فشلت عملية دمج الملفات!")
 
 class PKGApp(App):
     def build(self):

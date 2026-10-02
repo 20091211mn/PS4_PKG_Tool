@@ -3,18 +3,17 @@ import subprocess
 import hashlib
 
 def get_pkg_info(file_path):
-    """قراءة معلومات ملف الـ PKG ومعرف اللعبة CUSA والهيدر"""
+    """قراءة هيدر ملف PKG واستخراج CUSA وسعة الملف الحقيقية"""
     if not os.path.exists(file_path):
         return {"error": "File not found"}
     
     file_size = os.path.getsize(file_path)
     file_size_gb = file_size / (1024 * 1024 * 1024)
     
-    cusa_id = "Unknown"
+    cusa_id = "غير معروف"
     try:
         with open(file_path, "rb") as f:
             header = f.read(0x300)
-            # البحث عن معرف CUSA داخل هيدر ملف PKG لألعاب بلايستيشن 4
             for i in range(len(header) - 9):
                 chunk = header[i:i+9]
                 if chunk.startswith(b"CUSA") and chunk[4:9].isdigit():
@@ -31,7 +30,7 @@ def get_pkg_info(file_path):
     }
 
 def calculate_md5(file_path):
-    """التحقق من سلامة الملف عبر حساب MD5"""
+    """حساب مصفوفة التجزئة MD5 للتحقق من سلامة الملفات"""
     hash_md5 = hashlib.md5()
     try:
         with open(file_path, "rb") as f:
@@ -42,7 +41,7 @@ def calculate_md5(file_path):
         return None
 
 def split_pkg_bash(file_path, output_dir=None, chunk_size="4G"):
-    """تقسيم ملف الـ PKG باستخدام أدوات النظام السريعة"""
+    """تقسيم الملف باستخدام أدوات النظام السريعة"""
     if not os.path.exists(file_path):
         return False
     if not output_dir:
