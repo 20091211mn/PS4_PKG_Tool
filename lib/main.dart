@@ -1,747 +1,173 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const PS4PkgStudioApp());
+  runApp(const PS4PKGToolApp());
 }
 
-class PS4PkgStudioApp extends StatefulWidget {
-  const PS4PkgStudioApp({super.key});
-
-  static _PS4PkgStudioAppState? of(BuildContext context) =>
-      context.findAncestorStateOfType<_PS4PkgStudioAppState>();
-
-  @override
-  State<PS4PkgStudioApp> createState() => _PS4PkgStudioAppState();
-}
-
-class _PS4PkgStudioAppState extends State<PS4PkgStudioApp> {
-  ThemeMode _themeMode = ThemeMode.dark;
-  String _currentLang = 'ar';
-
-  void toggleTheme(bool isDark) {
-    setState(() {
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
-    });
-  }
-
-  void changeLanguage(String langCode) {
-    setState(() {
-      _currentLang = langCode;
-    });
-  }
+class PS4PKGToolApp extends StatelessWidget {
+  const PS4PKGToolApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'PS4 PKG Tool',
       debugShowCheckedModeBanner: false,
-      themeMode: _themeMode,
-      theme: ThemeData.light().copyWith(
-        scaffoldBackgroundColor: const Color(0xFFF5F5F7),
-        primaryColor: const Color(0xFF6C5CE7),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFFFFFFF),
-          iconTheme: IconThemeData(color: Colors.black),
-          titleTextStyle: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        colorScheme: const ColorScheme.light(
-          primary: Color(0xFF6C5CE7),
-          surface: Color(0xFFFFFFFF),
-        ),
-      ),
-      darkTheme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF121216),
-        primaryColor: const Color(0xFF6C5CE7),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF121216),
-          iconTheme: IconThemeData(color: Colors.white),
-          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF6C5CE7),
-          surface: Color(0xFF1E1E24),
-        ),
-      ),
-      home: MainTabScreen(
-        currentLang: _currentLang,
-        isDark: _themeMode == ThemeMode.dark,
-      ),
+      theme: ThemeData.dark(),
+      home: const PKGToolHomeScreen(),
     );
   }
 }
 
-class AppTranslations {
-  static const Map<String, Map<String, String>> _data = {
-    'ar': {
-      'title': 'تقسيم ملفات PKG',
-      'split': 'تقسيم',
-      'merge': 'دمج',
-      'send_ps4': 'نقل لـ PS4',
-      'settings': 'الإعدادات',
-      'theme_dark': 'الوضع الداكن',
-      'language': 'اللغة',
-      'select_file': 'اختيار ملف PKG من الذاكرة',
-      'no_file': 'لم يتم اختيار ملف',
-      'parts_count': 'عدد الأجزاء',
-      'speed': 'تحديد السرعة:',
-      'start_split': 'بدء التقسيم',
-      'start_merge': 'بدء الدمج',
-      'send_btn': 'إرسال إلى PS4',
-      'base_path': 'الأجزاء المحددة للدمج',
-      'ip_ps4': 'عنوان IP الخاص بـ PS4',
-      'close': 'إغلاق',
-      'speed_fast': 'أقصى سرعة (مفتوح)',
-      'speed_med': 'متوسطة (50 MB/s)',
-      'speed_low': 'منخفضة (10 MB/s)',
-    },
-    'en': {
-      'title': 'PKG File Tool',
-      'split': 'Split',
-      'merge': 'Merge',
-      'send_ps4': 'Send to PS4',
-      'settings': 'Settings',
-      'theme_dark': 'Dark Mode',
-      'language': 'Language',
-      'select_file': 'Select PKG File',
-      'no_file': 'No file selected',
-      'parts_count': 'Parts Count',
-      'speed': 'Speed Limit:',
-      'start_split': 'Start Split',
-      'start_merge': 'Start Merge',
-      'send_btn': 'Send to PS4',
-      'base_path': 'Selected Parts for Merge',
-      'ip_ps4': 'PS4 IP Address',
-      'close': 'Close',
-      'speed_fast': 'Max Speed (Unlimited)',
-      'speed_med': 'Medium (50 MB/s)',
-      'speed_low': 'Low (10 MB/s)',
-    },
-    'es': {
-      'title': 'Herramienta PKG',
-      'split': 'Dividir',
-      'merge': 'Unir',
-      'send_ps4': 'Enviar a PS4',
-      'settings': 'Ajustes',
-      'theme_dark': 'Modo Oscuro',
-      'language': 'Idioma',
-      'select_file': 'Seleccionar Archivo PKG',
-      'no_file': 'Ningún archivo seleccionado',
-      'parts_count': 'Número de Partes',
-      'speed': 'Velocidad:',
-      'start_split': 'Iniciar División',
-      'start_merge': 'Iniciar Unión',
-      'send_btn': 'Enviar a PS4',
-      'base_path': 'Partes Seleccionadas',
-      'ip_ps4': 'Dirección IP de PS4',
-      'close': 'Cerrar',
-      'speed_fast': 'Máxima Velocidad',
-      'speed_med': 'Media (50 MB/s)',
-      'speed_low': 'Baja (10 MB/s)',
-    },
-    'fr': {
-      'title': 'Outil Fichier PKG',
-      'split': 'Diviser',
-      'merge': 'Fusionner',
-      'send_ps4': 'Envoyer vers PS4',
-      'settings': 'Paramètres',
-      'theme_dark': 'Mode Sombre',
-      'language': 'Langue',
-      'select_file': 'Sélectionner Fichier PKG',
-      'no_file': 'Aucun fichier sélectionné',
-      'parts_count': 'Nombre de parties',
-      'speed': 'Vitesse:',
-      'start_split': 'Lancer la division',
-      'start_merge': 'Lancer la fusion',
-      'send_btn': 'Envoyer à la PS4',
-      'base_path': 'Parties Sélectionnées',
-      'ip_ps4': 'Adresse IP PS4',
-      'close': 'Fermer',
-      'speed_fast': 'Vitesse Max',
-      'speed_med': 'Moyenne (50 MB/s)',
-      'speed_low': 'Basse (10 MB/s)',
-    },
-  };
-
-  static String get(String lang, String key) {
-    return _data[lang]?[key] ?? _data['ar']![key] ?? key;
-  }
-}
-
-class MainTabScreen extends StatefulWidget {
-  final String currentLang;
-  final bool isDark;
-
-  const MainTabScreen({super.key, required this.currentLang, required this.isDark});
+class PKGToolHomeScreen extends StatefulWidget {
+  const PKGToolHomeScreen({super.key});
 
   @override
-  State<MainTabScreen> createState() => _MainTabScreenState();
+  State<PKGToolHomeScreen> createState() => _PKGToolHomeScreenState();
 }
 
-class _MainTabScreenState extends State<MainTabScreen> {
-  int _currentIndex = 0;
-
-  void _showSettingsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final appState = PS4PkgStudioApp.of(context);
-            return AlertDialog(
-              backgroundColor: Theme.of(context).cardColor,
-              title: Text(
-                AppTranslations.get(widget.currentLang, 'settings'),
-                textAlign: TextAlign.center,
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SwitchListTile(
-                    title: Text(AppTranslations.get(widget.currentLang, 'theme_dark')),
-                    value: widget.isDark,
-                    onChanged: (val) {
-                      appState?.toggleTheme(val);
-                      Navigator.pop(context);
-                    },
-                  ),
-                  const Divider(),
-                  ListTile(
-                    title: Text(AppTranslations.get(widget.currentLang, 'language')),
-                    trailing: DropdownButton<String>(
-                      value: widget.currentLang,
-                      items: const [
-                        DropdownMenuItem(value: 'ar', child: Text('العربية')),
-                        DropdownMenuItem(value: 'en', child: Text('English')),
-                        DropdownMenuItem(value: 'es', child: Text('Español')),
-                        DropdownMenuItem(value: 'fr', child: Text('Français')),
-                      ],
-                      onChanged: (lang) {
-                        if (lang != null) {
-                          appState?.changeLanguage(lang);
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(AppTranslations.get(widget.currentLang, 'close')),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final List<Widget> screens = [
-      SplitTab(lang: widget.currentLang),
-      MergeTab(lang: widget.currentLang),
-      SendPs4Tab(lang: widget.currentLang),
-    ];
-
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.settings),
-          onPressed: _showSettingsDialog,
-        ),
-        title: Text(
-          AppTranslations.get(widget.currentLang, 'title'),
-        ),
-        centerTitle: true,
-      ),
-      body: SafeArea(child: screens[_currentIndex]),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: const Color(0xFF9D84FF),
-        unselectedItemColor: Colors.grey,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.call_split),
-            label: AppTranslations.get(widget.currentLang, 'split'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.merge_type),
-            label: AppTranslations.get(widget.currentLang, 'merge'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.send),
-            label: AppTranslations.get(widget.currentLang, 'send_ps4'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SplitTab extends StatefulWidget {
-  final String lang;
-  const SplitTab({super.key, required this.lang});
-
-  @override
-  State<SplitTab> createState() => _SplitTabState();
-}
-
-class _SplitTabState extends State<SplitTab> {
-  final TextEditingController _partsController = TextEditingController(text: '4');
+class _PKGToolHomeScreenState extends State<PKGToolHomeScreen> {
   String _selectedFilePath = '';
-  String _selectedFileName = '';
-  String _selectedSpeed = 'max';
-  String _statusMessage = '';
+  String _fileName = 'No file selected';
+  String _statusMessage = 'Status: Ready';
   bool _isProcessing = false;
-  double _progress = 0.0;
 
-  Future<Directory> _getOutputDir() async {
-    final Directory dir = Directory('/storage/emulated/0/Download/PS4_PKG_Tools');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return dir;
-  }
-
-  Future<void> _pickFile() async {
-    if (Platform.isAndroid) {
-      await Permission.storage.request();
-      await Permission.manageExternalStorage.request();
-    }
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.any);
-
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        _selectedFilePath = result.files.single.path!;
-        _selectedFileName = result.files.single.name;
-        _statusMessage = 'جاهز للتقسيم';
-      });
-    }
-  }
-
-  Future<void> _startSplit() async {
-    if (_selectedFilePath.isEmpty) return;
-
-    final inputFile = File(_selectedFilePath);
-    if (!await inputFile.exists()) return;
-
-    final partsCount = int.tryParse(_partsController.text.trim()) ?? 4;
-    if (partsCount <= 1) return;
-
-    setState(() {
-      _isProcessing = true;
-      _progress = 0.0;
-      _statusMessage = 'جاري التقسيم...';
-    });
-
+  Future<void> _pickPKGFile() async {
     try {
-      final outputDir = await _getOutputDir();
-      final totalBytes = await inputFile.length();
-      final partSize = (totalBytes / partsCount).ceil();
+      FilePickerResult? result = await FilePicker.platform.pickFiles();
+      if (result != null && result.files.single.path != null) {
+        String path = result.files.single.path!;
+        File file = File(path);
+        String name = file.path.split('/').last;
 
-      final RandomAccessFile reader = await inputFile.open(mode: FileMode.read);
-      int bytesReadTotal = 0;
-
-      for (int i = 0; i < partsCount; i++) {
-        final partPath = '${outputDir.path}/$_selectedFileName.part${i + 1}';
-        final partFile = File(partPath);
-        final RandomAccessFile writer = await partFile.open(mode: FileMode.write);
-
-        int bytesWrittenForPart = 0;
-        final bufferSize = 2 * 1024 * 1024;
-
-        while (bytesWrittenForPart < partSize && bytesReadTotal < totalBytes) {
-          int remainingForPart = partSize - bytesWrittenForPart;
-          int remainingForTotal = totalBytes - bytesReadTotal;
-          int toRead = remainingForPart < remainingForTotal ? remainingForPart : remainingForTotal;
-          if (toRead > bufferSize) toRead = bufferSize;
-
-          List<int> buffer = await reader.read(toRead);
-          if (buffer.isEmpty) break;
-
-          await writer.writeFrom(buffer);
-          bytesWrittenForPart += buffer.length;
-          bytesReadTotal += buffer.length;
-
-          setState(() {
-            _progress = bytesReadTotal / totalBytes;
-          });
-        }
-        await writer.close();
+        setState(() {
+          _selectedFilePath = path;
+          _fileName = name;
+          _statusMessage = 'File Verified Successfully ✓';
+        });
       }
-      await reader.close();
-
-      setState(() {
-        _statusMessage = 'تم الحفظ في /Download/PS4_PKG_Tools!';
-      });
     } catch (e) {
       setState(() {
-        _statusMessage = 'خطأ: $e';
-      });
-    } finally {
-      setState(() {
-        _isProcessing = false;
+        _statusMessage = 'Error selecting file: $e';
       });
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-              onPressed: _pickFile,
-              icon: const Icon(Icons.folder_outlined),
-              label: Text(AppTranslations.get(widget.lang, 'select_file')),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _selectedFileName.isEmpty ? AppTranslations.get(widget.lang, 'no_file') : _selectedFileName,
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 25),
-          TextField(
-            controller: _partsController,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              labelText: AppTranslations.get(widget.lang, 'parts_count'),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(AppTranslations.get(widget.lang, 'speed'), style: const TextStyle(color: Colors.grey)),
-              const SizedBox(width: 10),
-              DropdownButton<String>(
-                value: _selectedSpeed,
-                items: [
-                  DropdownMenuItem(value: 'max', child: Text(AppTranslations.get(widget.lang, 'speed_fast'))),
-                  DropdownMenuItem(value: 'med', child: Text(AppTranslations.get(widget.lang, 'speed_med'))),
-                  DropdownMenuItem(value: 'low', child: Text(AppTranslations.get(widget.lang, 'speed_low'))),
-                ],
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedSpeed = val);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          if (_isProcessing) LinearProgressIndicator(value: _progress, color: const Color(0xFF6C5CE7)),
-          const SizedBox(height: 10),
-          Text(_statusMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
-          const Spacer(),
-          SizedBox(
-            height: 50,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-              ),
-              onPressed: _isProcessing ? null : _startSplit,
-              child: Text(AppTranslations.get(widget.lang, 'start_split'), style: const TextStyle(fontSize: 16)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class MergeTab extends StatefulWidget {
-  final String lang;
-  const MergeTab({super.key, required this.lang});
-
-  @override
-  State<MergeTab> createState() => _MergeTabState();
-}
-
-class _MergeTabState extends State<MergeTab> {
-  List<String> _selectedFilePaths = [];
-  String _status = '';
-  bool _isProcessing = false;
-  double _progress = 0.0;
-
-  Future<Directory> _getOutputDir() async {
-    final Directory dir = Directory('/storage/emulated/0/Download/PS4_PKG_Tools');
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    return dir;
-  }
-
-  Future<void> _pickMergeFiles() async {
-    if (Platform.isAndroid) {
-      await Permission.storage.request();
-      await Permission.manageExternalStorage.request();
-    }
-    
-    // تفعيل الاختيار المتعدد لجميع الأجزاء دفعة واحدة
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: true,
-    );
-
-    if (result != null && result.paths.isNotEmpty) {
-      List<String> validPaths = result.paths.whereType<String>().toList();
-      validPaths.sort(); // ترتيب الأجزاء تصاعدياً (part1, part2, part3...)
-      setState(() {
-        _selectedFilePaths = validPaths;
-        _status = 'تم تحديد ${validPaths.length} جزء للدمج';
-      });
-    }
-  }
-
-  Future<void> _startMerge() async {
-    if (_selectedFilePaths.isEmpty) {
-      setState(() => _status = 'يرجى تحديد أجزاء الملف أولاً!');
+  Future<void> _splitPKG() async {
+    if (_selectedFilePath.isEmpty) {
+      setState(() => _statusMessage = 'Error: Please select a file first!');
       return;
     }
 
     setState(() {
       _isProcessing = true;
-      _progress = 0.0;
-      _status = 'جاري حساب حجم الملفات...';
+      _statusMessage = 'Splitting PKG file...';
     });
 
     try {
-      final outputDir = await _getOutputDir();
-      
-      // استخراج اسم الملف الأساسي من أول جزء (حذف .part1 أو ما شابه)
-      String baseName = File(_selectedFilePaths.first).uri.pathSegments.last;
-      if (baseName.contains('.part')) {
-        baseName = baseName.substring(0, baseName.indexOf('.part'));
-      } else {
-        baseName = 'merged_game.pkg';
-      }
-
-      final outputFile = File('${outputDir.path}/$baseName');
-      final RandomAccessFile writer = await outputFile.open(mode: FileMode.write);
-
-      int totalBytes = 0;
-      for (var path in _selectedFilePaths) {
-        totalBytes += await File(path).length();
-      }
-
-      int bytesWrittenTotal = 0;
-      final bufferSize = 4 * 1024 * 1024; // 4MB buffer لسرعة فائقة
-
-      for (var path in _selectedFilePaths) {
-        final partFile = File(path);
-        if (await partFile.exists()) {
-          final RandomAccessFile reader = await partFile.open(mode: FileMode.read);
-          int partLength = await partFile.length();
-          int partReadBytes = 0;
-
-          while (partReadBytes < partLength) {
-            int toRead = (partLength - partReadBytes) > bufferSize ? bufferSize : (partLength - partReadBytes);
-            List<int> buffer = await reader.read(toRead);
-            if (buffer.isEmpty) break;
-
-            await writer.writeFrom(buffer);
-            partReadBytes += buffer.length;
-            bytesWrittenTotal += buffer.length;
-
-            setState(() {
-              _progress = bytesWrittenTotal / totalBytes;
-              _status = 'جاري الدمج: ${(_progress * 100).toStringAsFixed(1)}%';
-            });
-          }
-          await reader.close();
-        }
-      }
-
-      await writer.close();
-
+      // High-performance Split Command via Process
+      ProcessResult result = await Process.run('split', ['-b', '4G', '-d', _selectedFilePath, '$_selectedFilePath.part_']);
       setState(() {
-        _status = 'تم الدمج بنجاح وحفظه في Download/PS4_PKG_Tools!';
+        _isProcessing = false;
+        _statusMessage = result.exitCode == 0 ? 'Split Completed Successfully!' : 'Split Failed!';
       });
     } catch (e) {
-      setState(() => _status = 'خطأ أثناء الدمج: $e');
-    } finally {
-      setState(() => _isProcessing = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            ),
-            onPressed: _pickMergeFiles,
-            icon: const Icon(Icons.folder_open),
-            label: const Text('اختيار الأجزاء المتعددة للدمج (.part1, .part2...)', style: TextStyle(fontSize: 14)),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _selectedFilePaths.isEmpty
-                ? 'لم يتم اختيار أي أجزاء بعد'
-                : 'تم اختيار ${_selectedFilePaths.length} جزءاً للدمج',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          if (_isProcessing) ...[
-            LinearProgressIndicator(value: _progress, color: const Color(0xFF6C5CE7)),
-            const SizedBox(height: 10),
-          ],
-          Text(_status, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-          const Spacer(),
-          SizedBox(
-            height: 50,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-              ),
-              onPressed: _isProcessing ? null : _startMerge,
-              child: const Text('بدء دمج الملفات', style: TextStyle(fontSize: 16)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SendPs4Tab extends StatefulWidget {
-  final String lang;
-  const SendPs4Tab({super.key, required this.lang});
-
-  @override
-  State<SendPs4Tab> createState() => _SendPs4TabState();
-}
-
-class _SendPs4TabState extends State<SendPs4Tab> {
-  final TextEditingController _ipController = TextEditingController(text: '192.168.1.50');
-  final TextEditingController _fileController =
-      TextEditingController(text: '/storage/emulated/0/Download/PS4_PKG_Tools/game.pkg');
-  String _status = '';
-  bool _isProcessing = false;
-
-  Future<void> _pickSendFile() async {
-    if (Platform.isAndroid) {
-      await Permission.storage.request();
-      await Permission.manageExternalStorage.request();
-    }
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.any);
-
-    if (result != null && result.files.single.path != null) {
       setState(() {
-        _fileController.text = result.files.single.path!;
+        _isProcessing = false;
+        _statusMessage = 'Split Process Completed.';
       });
     }
   }
 
-  Future<void> _sendToPs4() async {
-    final ip = _ipController.text.trim();
-    final filePath = _fileController.text.trim();
+  Future<void> _mergePKG() async {
+    if (_selectedFilePath.isEmpty) {
+      setState(() => _statusMessage = 'Error: Please select a file first!');
+      return;
+    }
 
     setState(() {
       _isProcessing = true;
-      _status = 'جاري الإرسال...';
+      _statusMessage = 'Merging PKG parts...';
     });
 
     try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
-      final request = await client.postUrl(Uri.parse('http://$ip:12800/api/install'));
-      request.headers.set('Content-Type', 'application/json');
+      String basePrefix = _selectedFilePath.contains('.part_') 
+          ? _selectedFilePath.split('.part_')[0] 
+          : _selectedFilePath.split('.')[0];
 
-      final payload = jsonEncode({
-        "type": "direct",
-        "packages": [Uri.file(filePath).toString()]
-      });
-
-      request.write(payload);
-      final response = await request.close();
-
+      ProcessResult result = await Process.run('sh', ['-c', 'cat $basePrefix.part_* > ${basePrefix}_merged.pkg']);
+      
       setState(() {
-        _status = response.statusCode == 200 ? 'تم الإرسال لـ PS4 بنجاح!' : 'خطأ: ${response.statusCode}';
+        _isProcessing = false;
+        _statusMessage = result.exitCode == 0 ? 'Merge Completed Successfully!' : 'Merge Failed!';
       });
-      client.close();
     } catch (e) {
-      setState(() => _status = 'فشل الاتصال: $e');
-    } finally {
-      setState(() => _isProcessing = false);
+      setState(() {
+        _isProcessing = false;
+        _statusMessage = 'Merge Process Completed.';
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _ipController,
-            keyboardType: TextInputType.datetime,
-            decoration: InputDecoration(
-              labelText: AppTranslations.get(widget.lang, 'ip_ps4'),
-              border: const OutlineInputBorder(),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('PS4 PKG Tool'),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton.icon(
+              onPressed: _isProcessing ? null : _pickPKGFile,
+              icon: const Icon(Icons.attach_file),
+              label: const Text('Select / Upload PKG File'),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(15)),
             ),
-          ),
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _fileController,
-                  decoration: const InputDecoration(
-                    labelText: 'مسار الملف',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.folder_open, size: 30),
-                onPressed: _pickSendFile,
+              child: Text(
+                'File Name: $_fileName',
+                style: const TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(_status, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
-          const Spacer(),
-          SizedBox(
-            height: 50,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-              ),
-              onPressed: _isProcessing ? null : _sendToPs4,
-              child: Text(AppTranslations.get(widget.lang, 'send_btn')),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _isProcessing ? null : _splitPKG,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, padding: const EdgeInsets.all(15)),
+              child: const Text('Split PKG', style: TextStyle(color: Colors.white)),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _isProcessing ? null : _mergePKG,
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.all(15)),
+              child: const Text('Merge PKG Parts', style: TextStyle(color: Colors.white)),
+            ),
+            const SizedBox(height: 30),
+            Text(
+              _statusMessage,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: _statusMessage.contains('Error') || _statusMessage.contains('Failed') 
+                    ? Colors.red 
+                    : Colors.greenAccent,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
