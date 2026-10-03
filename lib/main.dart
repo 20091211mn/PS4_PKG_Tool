@@ -65,6 +65,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -74,7 +76,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             _currentIndex = index;
           });
         },
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF13131A) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF13131A) : Colors.white,
         selectedItemColor: const Color(0xFF7C4DFF),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
@@ -161,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: const Icon(Icons.cleaning_services, color: Color(0xFF7C4DFF)),
               title: const Text('تنظيف الملفات المؤقتة (Cache Cleanup)'),
-              subtitle: const Text('حذف الملفات المخلفات لتوفير مساحة الذاكرة'),
+              subtitle: const Text('حذف مخلفات المعالجة لزيادة المساحة'),
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تنظيف الملفات المؤقتة بنجاح!')));
               },
@@ -181,7 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ==================== 1. تبويب التقسيم (مع أيقونة الإعدادات وواجهة فارغة مميزة) ====================
+// ==================== 1. تبويب التقسيم (المعدل بجمالية ممتازة) ====================
 class SplitTab extends StatefulWidget {
   const SplitTab({super.key});
 
@@ -191,6 +193,7 @@ class SplitTab extends StatefulWidget {
 
 class _SplitTabState extends State<SplitTab> {
   String? _filePath;
+  String? _fileName;
   String _fileDetails = '';
   String _statusMessage = 'اختر ملف PKG للبدء';
   bool _isProcessing = false;
@@ -201,22 +204,26 @@ class _SplitTabState extends State<SplitTab> {
   Future<void> _requestPermissionAndPickFile() async {
     var status = await Permission.storage.request();
     if (!status.isGranted) {
-      // للأندرويد الحديث
       await Permission.manageExternalStorage.request();
     }
 
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles();
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+      );
+
       if (result != null && result.files.single.path != null) {
         String path = result.files.single.path!;
+        String name = result.files.single.name;
         File file = File(path);
         int sizeInBytes = await file.length();
         double sizeInGB = sizeInBytes / (1024 * 1024 * 1024);
 
         setState(() {
           _filePath = path;
+          _fileName = name;
           _fileDetails = 'حجم الملف: ${sizeInGB.toStringAsFixed(2)} GB | جاهز للتقسيم';
-          _statusMessage = '✓ تم اختيار الملف بنجاح';
+          _statusMessage = 'تم اختيار الملف بنجاح ✓';
         });
       }
     } catch (e) {
@@ -261,7 +268,7 @@ class _SplitTabState extends State<SplitTab> {
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
         child: Column(
           children: [
-            // العنوان مع زر الإعدادات أعلى اليسار
+            // العنوان المزود بأيقونة الإعدادات وتصحيح الاتجاه
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -272,7 +279,7 @@ class _SplitTabState extends State<SplitTab> {
                   },
                 ),
                 const Text(
-                  'PKG تقسيم ملفات',
+                  'تقسيم ملفات PKG',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -282,7 +289,7 @@ class _SplitTabState extends State<SplitTab> {
             ElevatedButton.icon(
               onPressed: _requestPermissionAndPickFile,
               icon: const Icon(Icons.folder_outlined, color: Colors.white),
-              label: const Text('من الذاكرة اختيار ملف', style: TextStyle(color: Colors.white)),
+              label: const Text('اختيار ملف PKG من الذاكرة', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF23232E),
                 minimumSize: const Size(double.infinity, 50),
@@ -298,7 +305,7 @@ class _SplitTabState extends State<SplitTab> {
             ),
             const SizedBox(height: 15),
 
-            // الخانة الفارغة المخصصة والمصممة بنمط البنفسجي والأسود
+            // البطاقة التفاعلية المصممة لمساحة العرض المخصصة
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -319,14 +326,30 @@ class _SplitTabState extends State<SplitTab> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.auto_awesome_motion, size: 50, color: Color(0xFF7C4DFF)),
+                    const Icon(Icons.snippet_folder, size: 55, color: Color(0xFF7C4DFF)),
                     const SizedBox(height: 15),
+                    if (_fileName != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          _fileName!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF9E86FF),
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const SizedBox(height: 8),
                     Text(
                       _filePath == null ? 'مساحة العمل فارغة\nقم برفع ملف PKG للبدء' : _fileDetails,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: isDark ? Colors.white70 : Colors.black87,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -413,7 +436,7 @@ class _SplitTabState extends State<SplitTab> {
   }
 }
 
-// ==================== 2. تبويب الدمج (مع ميزة رفع الملفات وأذونات التخزين) ====================
+// ==================== 2. تبويب الدمج ====================
 class MergeTab extends StatefulWidget {
   const MergeTab({super.key});
 
@@ -468,8 +491,6 @@ class _MergeTabState extends State<MergeTab> {
 
   @override
   Widget build(BuildContext context) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
-
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
@@ -478,13 +499,12 @@ class _MergeTabState extends State<MergeTab> {
             const Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'PKG دمج أجزاء',
+                'دمج أجزاء PKG',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 25),
 
-            // زر رفع واختيار الملفات المفقود
             ElevatedButton.icon(
               onPressed: _pickMergeFiles,
               icon: const Icon(Icons.file_upload, color: Colors.white),
