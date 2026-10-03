@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 
-    <application
+    <application android:usesCleartextTraffic="true"
         android:label="${app_name}"
         android:icon="@mipmap/ic_launcher">
         <activity

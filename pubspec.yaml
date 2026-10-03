@@ -12,6 +12,7 @@ dependencies:
   file_picker: ^8.0.0
   permission_handler: ^11.3.1
   http: ^1.2.0
+  wakelock_plus: ^1.2.0
 
 dev_dependencies:
   flutter_test:
