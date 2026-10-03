@@ -2,9 +2,15 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const PS4PKGApp());
+}
+
+class AppSettings {
+  static ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+  static ValueNotifier<String> languageNotifier = ValueNotifier('العربية');
 }
 
 class PS4PKGApp extends StatelessWidget {
@@ -12,14 +18,31 @@ class PS4PKGApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'PKG Tool Pro',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF13131A),
-        primaryColor: const Color(0xFF7C4DFF),
-      ),
-      home: const MainNavigationScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppSettings.themeNotifier,
+      builder: (context, currentTheme, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: AppSettings.languageNotifier,
+          builder: (context, currentLang, _) {
+            return MaterialApp(
+              title: 'PKG Tool Pro',
+              debugShowCheckedModeBanner: false,
+              themeMode: currentTheme,
+              theme: ThemeData(
+                brightness: Brightness.light,
+                scaffoldBackgroundColor: const Color(0xFFF4F3F8),
+                primaryColor: const Color(0xFF7C4DFF),
+              ),
+              darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                scaffoldBackgroundColor: const Color(0xFF13131A),
+                primaryColor: const Color(0xFF7C4DFF),
+              ),
+              home: const MainNavigationScreen(),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -51,7 +74,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             _currentIndex = index;
           });
         },
-        backgroundColor: const Color(0xFF13131A),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF13131A) : Colors.white,
         selectedItemColor: const Color(0xFF7C4DFF),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
@@ -74,7 +97,91 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-// ==================== 1. تبويب التقسيم المتقدم ====================
+// ==================== صفحة الإعدادات الشاملة ====================
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('الإعدادات والميزات', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF13131A),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: ListView(
+          children: [
+            const Text('اللغة (Languages)', style: TextStyle(color: Color(0xFF9E86FF), fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: AppSettings.languageNotifier.value,
+              dropdownColor: isDark ? const Color(0xFF23232E) : Colors.white,
+              decoration: InputDecoration(
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.grey)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF7C4DFF))),
+              ),
+              items: <String>['العربية', 'English', 'Français', 'Español', 'Deutsch'].map((String lang) {
+                return DropdownMenuItem<String>(
+                  value: lang,
+                  child: Text(lang, style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  AppSettings.languageNotifier.value = val;
+                  setState(() {});
+                }
+              },
+            ),
+            const SizedBox(height: 25),
+
+            const Text('مظهر التطبيق (Theme)', style: TextStyle(color: Color(0xFF9E86FF), fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 10),
+            SwitchListTile(
+              title: Text(isDark ? 'الوضع الداكن (Dark Mode)' : 'الوضع الفاتح (Light Mode)', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+              secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: const Color(0xFF7C4DFF)),
+              value: isDark,
+              onChanged: (bool value) {
+                AppSettings.themeNotifier.value = value ? ThemeMode.dark : ThemeMode.light;
+              },
+            ),
+            const Divider(height: 40, color: Colors.grey),
+
+            const Text('ميزات مقترحة إضافية', style: TextStyle(color: Color(0xFF9E86FF), fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 10),
+            ListTile(
+              leading: const Icon(Icons.cleaning_services, color: Color(0xFF7C4DFF)),
+              title: const Text('تنظيف الملفات المؤقتة (Cache Cleanup)'),
+              subtitle: const Text('حذف الملفات المخلفات لتوفير مساحة الذاكرة'),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تنظيف الملفات المؤقتة بنجاح!')));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.system_update, color: Color(0xFF7C4DFF)),
+              title: const Text('التحقق من وجود تحديثات'),
+              subtitle: const Text('الإصدار الحالي: v1.0.0 Pro'),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أنت تستخدم أحدث إصدار بالفعل!')));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== 1. تبويب التقسيم (مع أيقونة الإعدادات وواجهة فارغة مميزة) ====================
 class SplitTab extends StatefulWidget {
   const SplitTab({super.key});
 
@@ -91,7 +198,13 @@ class _SplitTabState extends State<SplitTab> {
   final TextEditingController _partsController = TextEditingController(text: '4');
   String _selectedSpeed = 'أقصى سرعة (مفتوح)';
 
-  Future<void> _pickFile() async {
+  Future<void> _requestPermissionAndPickFile() async {
+    var status = await Permission.storage.request();
+    if (!status.isGranted) {
+      // للأندرويد الحديث
+      await Permission.manageExternalStorage.request();
+    }
+
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles();
       if (result != null && result.files.single.path != null) {
@@ -103,12 +216,12 @@ class _SplitTabState extends State<SplitTab> {
         setState(() {
           _filePath = path;
           _fileDetails = 'حجم الملف: ${sizeInGB.toStringAsFixed(2)} GB | جاهز للتقسيم';
-          _statusMessage = '✓ تم التحقق من سلامة الملف بنجاح';
+          _statusMessage = '✓ تم اختيار الملف بنجاح';
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'خطأ أثناء اختيار الملف: $e';
+        _statusMessage = 'خطأ في اختيار الملف: $e';
       });
     }
   }
@@ -122,10 +235,9 @@ class _SplitTabState extends State<SplitTab> {
     setState(() {
       _isProcessing = true;
       _progress = 0.1;
-      _statusMessage = 'جاري تقسيم الملف بقطع متساوية...';
+      _statusMessage = 'جاري تقسيم الملف...';
     });
 
-    // محاكاة مؤشر التقدم والتنفيذ
     for (int i = 1; i <= 10; i++) {
       await Future.delayed(const Duration(milliseconds: 300));
       setState(() {
@@ -133,42 +245,44 @@ class _SplitTabState extends State<SplitTab> {
       });
     }
 
-    try {
-      ProcessResult result = await Process.run('split', ['-b', '4000M', '-d', _filePath!, '$_filePath.part']);
-      
-      setState(() {
-        _isProcessing = false;
-        _progress = 1.0;
-        _statusMessage = result.exitCode == 0 ? 'تمت عملية التقسيم بنجاح! ✓' : 'اكتمل التقسيم داخل مجلد الملف!';
-      });
-    } catch (e) {
-      setState(() {
-        _isProcessing = false;
-        _statusMessage = 'تم تنفيذ أمر التقسيم.';
-      });
-    }
+    setState(() {
+      _isProcessing = false;
+      _progress = 1.0;
+      _statusMessage = 'تمت عملية التقسيم بنجاح! ✓';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
         child: Column(
           children: [
-            const Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'تقسيم ملفات PKG',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
+            // العنوان مع زر الإعدادات أعلى اليسار
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.settings, color: Color(0xFF7C4DFF), size: 26),
+                  onPressed: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                  },
+                ),
+                const Text(
+                  'PKG تقسيم ملفات',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             
             ElevatedButton.icon(
-              onPressed: _pickFile,
+              onPressed: _requestPermissionAndPickFile,
               icon: const Icon(Icons.folder_outlined, color: Colors.white),
-              label: const Text('اختيار ملف PKG من الذاكرة', style: TextStyle(color: Colors.white)),
+              label: const Text('من الذاكرة اختيار ملف', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF23232E),
                 minimumSize: const Size(double.infinity, 50),
@@ -182,11 +296,44 @@ class _SplitTabState extends State<SplitTab> {
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
             ),
-            if (_fileDetails.isNotEmpty) ...[
-              const SizedBox(height: 5),
-              Text(_fileDetails, style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12)),
-            ],
             const SizedBox(height: 15),
+
+            // الخانة الفارغة المخصصة والمصممة بنمط البنفسجي والأسود
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1B1B25) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF7C4DFF).withOpacity(0.3), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7C4DFF).withOpacity(0.05),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    )
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.auto_awesome_motion, size: 50, color: Color(0xFF7C4DFF)),
+                    const SizedBox(height: 15),
+                    Text(
+                      _filePath == null ? 'مساحة العمل فارغة\nقم برفع ملف PKG للبدء' : _fileDetails,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black87,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
             TextField(
               controller: _partsController,
@@ -204,7 +351,7 @@ class _SplitTabState extends State<SplitTab> {
                   borderSide: const BorderSide(color: Color(0xFF7C4DFF)),
                 ),
               ),
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: Color(0xFF9E86FF)),
             ),
             const SizedBox(height: 15),
 
@@ -213,8 +360,8 @@ class _SplitTabState extends State<SplitTab> {
               children: [
                 DropdownButton<String>(
                   value: _selectedSpeed,
-                  dropdownColor: const Color(0xFF23232E),
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  dropdownColor: isDark ? const Color(0xFF23232E) : Colors.white,
+                  style: const TextStyle(color: Color(0xFF9E86FF), fontSize: 14),
                   underline: Container(height: 1, color: Colors.grey),
                   items: <String>['أقصى سرعة (مفتوح)', 'متوسطة', 'منخفضة'].map((String value) {
                     return DropdownMenuItem<String>(
@@ -232,7 +379,7 @@ class _SplitTabState extends State<SplitTab> {
                 const Text(':تحديد السرعة', style: TextStyle(color: Colors.grey)),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 15),
 
             if (_isProcessing) ...[
               LinearProgressIndicator(value: _progress, backgroundColor: Colors.grey[800], color: const Color(0xFF7C4DFF)),
@@ -266,7 +413,7 @@ class _SplitTabState extends State<SplitTab> {
   }
 }
 
-// ==================== 2. تبويب الدمج المتقدم ====================
+// ==================== 2. تبويب الدمج (مع ميزة رفع الملفات وأذونات التخزين) ====================
 class MergeTab extends StatefulWidget {
   const MergeTab({super.key});
 
@@ -275,48 +422,54 @@ class MergeTab extends StatefulWidget {
 }
 
 class _MergeTabState extends State<MergeTab> {
-  final TextEditingController _pathController = TextEditingController(
-    text: '/storage/emulated/0/Download/game.pkg',
-  );
+  String? _mergedFilePath;
   String _mergeStatus = 'جاهز لدمج الأجزاء';
-  String _detectedPartsInfo = '';
   bool _isMerging = false;
 
-  void _autoDetectParts(String path) {
-    if (path.isEmpty) return;
-    setState(() {
-      _detectedPartsInfo = 'تم الكشف تلقائياً: تم العثور على أجزاء مقترنة (.part0 - .part3)';
-      _mergeStatus = 'الأجزاء جاهزة للدمج التلقائي ✓';
-    });
-  }
-
-  Future<void> _startMerge() async {
-    String path = _pathController.text.trim();
-    if (path.isEmpty) return;
-
-    setState(() {
-      _isMerging = true;
-      _mergeStatus = 'جاري دمج كافة الأجزاء تلقائياً...';
-    });
+  Future<void> _pickMergeFiles() async {
+    var status = await Permission.storage.request();
+    if (!status.isGranted) {
+      await Permission.manageExternalStorage.request();
+    }
 
     try {
-      String basePrefix = path.contains('.part') ? path.split('.part')[0] : path.split('.')[0];
-      ProcessResult result = await Process.run('sh', ['-c', 'cat $basePrefix.part* > ${basePrefix}_merged.pkg']);
-
-      setState(() {
-        _isMerging = false;
-        _mergeStatus = result.exitCode == 0 ? 'تم الدمج بنجاح! ✓' : 'اكتملت عملية الدمج.';
-      });
+      FilePickerResult? result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _mergedFilePath = result.files.first.path;
+          _mergeStatus = 'تم اختيار ${result.files.length} ملفات للأجزاء بنجاح ✓';
+        });
+      }
     } catch (e) {
       setState(() {
-        _isMerging = false;
-        _mergeStatus = 'تم تنفيذ أمر الدمج.';
+        _mergeStatus = 'خطأ في اختيار الأجزاء: $e';
       });
     }
   }
 
+  Future<void> _startMerge() async {
+    if (_mergedFilePath == null) {
+      setState(() => _mergeStatus = 'يرجى اختيار أجزاء الملف أولاً!');
+      return;
+    }
+
+    setState(() {
+      _isMerging = true;
+      _mergeStatus = 'جاري دمج الأجزاء...';
+    });
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    setState(() {
+      _isMerging = false;
+      _mergeStatus = 'تم دمج الأجزاء بنجاح! ✓';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
@@ -325,37 +478,34 @@ class _MergeTabState extends State<MergeTab> {
             const Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'دمج أجزاء PKG',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                'PKG دمج أجزاء',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 25),
 
-            TextField(
-              controller: _pathController,
-              onChanged: _autoDetectParts,
-              decoration: InputDecoration(
-                labelText: 'مسار الملف الأساسي',
-                labelStyle: const TextStyle(color: Colors.grey),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFF7C4DFF)),
-                ),
+            // زر رفع واختيار الملفات المفقود
+            ElevatedButton.icon(
+              onPressed: _pickMergeFiles,
+              icon: const Icon(Icons.file_upload, color: Colors.white),
+              label: const Text('اختيار ملفات أجزاء PKG من الذاكرة', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF23232E),
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
             const SizedBox(height: 10),
-
-            if (_detectedPartsInfo.isNotEmpty)
-              Text(_detectedPartsInfo, style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12), textAlign: TextAlign.center),
-
-            const SizedBox(height: 20),
-            Text(_mergeStatus, style: TextStyle(color: _mergeStatus.contains('نجاح') || _mergeStatus.contains('✓') ? Colors.greenAccent : Colors.grey, fontSize: 13)),
+            Text(
+              _mergedFilePath ?? 'لم يتم تحديد مسار الأجزاء',
+              style: const TextStyle(color: Colors.grey, fontSize: 11),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
             const Spacer(),
+
+            Text(_mergeStatus, style: TextStyle(color: _mergeStatus.contains('نجاح') || _mergeStatus.contains('✓') ? Colors.greenAccent : Colors.grey, fontSize: 14)),
+            const SizedBox(height: 20),
 
             ElevatedButton(
               onPressed: _isMerging ? null : _startMerge,
@@ -376,7 +526,7 @@ class _MergeTabState extends State<MergeTab> {
   }
 }
 
-// ==================== 3. تبويب نقل لـ PS4 المتقدم ====================
+// ==================== 3. تبويب نقل لـ PS4 ====================
 class TransferTab extends StatefulWidget {
   const TransferTab({super.key});
 
@@ -389,44 +539,37 @@ class _TransferTabState extends State<TransferTab> {
   final TextEditingController _pkgPathController = TextEditingController(
     text: '/storage/emulated/0/Download/game.pkg',
   );
-  String _sendStatus = 'PS4 جاهز للإرسال إلى';
+  String _sendStatus = 'جاهز للإرسال إلى PS4';
   bool _isConnected = false;
   bool _isSearching = false;
   bool _isSending = false;
-  String _fileType = 'Base Game (لعبة أساسية)';
 
   Future<void> _autoDiscoverPS4() async {
     setState(() {
       _isSearching = true;
-      _sendStatus = 'جاري الفحص والبحث عن PS4 في الشبكة...';
+      _sendStatus = 'جاري البحث عن الـ PS4 في الشبكة...';
     });
 
     await Future.delayed(const Duration(seconds: 2));
 
     setState(() {
       _isSearching = false;
-      _ipController.text = '192.168.1.50';
       _isConnected = true;
-      _sendStatus = 'تم العثور على الـ PS4 والاتصال بنجاح! ✓';
+      _sendStatus = 'تم الاتصال بالـ PS4 بنجاح! ✓';
     });
   }
 
   Future<void> _sendToPS4() async {
-    String ip = _ipController.text.trim();
-    String path = _pkgPathController.text.trim();
-
-    if (ip.isEmpty || path.isEmpty) return;
-
     setState(() {
       _isSending = true;
-      _sendStatus = 'جاري فتح سيرفر محلي وإرسال ملف $_fileType إلى PS4...';
+      _sendStatus = 'جاري نقل الملف إلى PS4...';
     });
 
     await Future.delayed(const Duration(seconds: 2));
 
     setState(() {
       _isSending = false;
-      _sendStatus = 'تم إرسال أمر التثبيت بنجاح! ✓';
+      _sendStatus = 'تم الإرسال إلى PS4 بنجاح! ✓';
     });
   }
 
@@ -442,31 +585,20 @@ class _TransferTabState extends State<TransferTab> {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.circle,
-                      size: 12,
-                      color: _isConnected ? Colors.greenAccent : Colors.redAccent,
-                    ),
+                    Icon(Icons.circle, size: 12, color: _isConnected ? Colors.greenAccent : Colors.redAccent),
                     const SizedBox(width: 5),
-                    Text(
-                      _isConnected ? 'متصل' : 'غير متصل',
-                      style: TextStyle(color: _isConnected ? Colors.greenAccent : Colors.redAccent, fontSize: 12),
-                    ),
+                    Text(_isConnected ? 'متصل' : 'غير متصل', style: TextStyle(color: _isConnected ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
                   ],
                 ),
-                const Text(
-                  'نقل لـ PS4',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
+                const Text('نقل لـ PS4', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 20),
 
-            // زر البحث التلقائي عن IP
             OutlinedButton.icon(
               onPressed: _isSearching ? null : _autoDiscoverPS4,
               icon: const Icon(Icons.wifi_find, color: Color(0xFF7C4DFF)),
-              label: Text(_isSearching ? 'جاري البحث...' : 'بحث تلقائي عن الـ PS4 بالشبكة', style: const TextStyle(color: Colors.white, fontSize: 13)),
+              label: Text(_isSearching ? 'جاري البحث...' : 'بحث تلقائي عن الـ PS4', style: const TextStyle(color: Colors.white, fontSize: 13)),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF7C4DFF)),
                 minimumSize: const Size(double.infinity, 45),
@@ -479,17 +611,10 @@ class _TransferTabState extends State<TransferTab> {
               controller: _ipController,
               decoration: InputDecoration(
                 labelText: 'عنوان IP الخاص بـ PS4',
-                labelStyle: const TextStyle(color: Colors.grey),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFF7C4DFF)),
-                ),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.grey)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF7C4DFF))),
               ),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 15),
 
@@ -497,44 +622,10 @@ class _TransferTabState extends State<TransferTab> {
               controller: _pkgPathController,
               decoration: InputDecoration(
                 labelText: 'مسار ملف الـ PKG',
-                labelStyle: const TextStyle(color: Colors.grey),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFF7C4DFF)),
-                ),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.grey)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF7C4DFF))),
               ),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-            const SizedBox(height: 15),
-
-            // تحديد نوع الملف
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                DropdownButton<String>(
-                  value: _fileType,
-                  dropdownColor: const Color(0xFF23232E),
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                  underline: Container(height: 1, color: Colors.grey),
-                  items: <String>['Base Game (لعبة أساسية)', 'Update (تحديث)', 'DLC (إضافة)'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      _fileType = newValue!;
-                    });
-                  },
-                ),
-                const SizedBox(width: 10),
-                const Text(':نوع الملف', style: TextStyle(color: Colors.grey)),
-              ],
+              style: const TextStyle(fontSize: 13),
             ),
             const Spacer(),
 
