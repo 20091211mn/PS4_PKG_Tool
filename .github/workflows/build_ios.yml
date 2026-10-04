@@ -19,6 +19,9 @@ jobs:
           channel: 'stable'
           architecture: x64
 
+      - name: Generate iOS Project
+        run: flutter create --platforms=ios .
+
       - name: Install Dependencies
         run: flutter pub get
 
