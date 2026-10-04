@@ -28,6 +28,8 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" $P
           /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" $P
           /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 'Needed to send PKG files to PS4'" $P
+          /usr/libexec/PlistBuddy -c "Add :UIFileSharingEnabled bool true" $P
+          /usr/libexec/PlistBuddy -c "Add :LSSupportsOpeningDocumentsInPlace bool true" $P
 
       - name: Install Dependencies
         run: flutter pub get

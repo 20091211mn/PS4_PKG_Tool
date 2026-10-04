@@ -13,6 +13,8 @@ dependencies:
   permission_handler: ^11.3.1
   http: ^1.2.0
   wakelock_plus: ^1.2.0
+  path_provider: ^2.1.0
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:
