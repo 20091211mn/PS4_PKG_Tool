@@ -1,61 +1,56 @@
-import os, socket, threading, requests
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import socket
+import http.server
+import socketserver
+import urllib.parse
+import json
+import urllib.request
+import os
+
 PORT = 9090
-DL = "/sdcard/Download"
-RPI = 12800
+
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
 ps4_ip = input("IP PS4: ").strip()
-p = input("PKG path: ").strip().rstrip("/")
-path = p if p.startswith("/") else os.path.join(DL, p)
-if not os.path.isfile(path):
-    raise SystemExit("File not found: " + path)
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.connect((ps4_ip, RPI))
-phone_ip = s.getsockname()[0]
-s.close()
-size = os.path.getsize(path)
-name = os.path.basename(path)
-class H(BaseHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-    def log_message(self, f, *a):
-        print("[PS4]", self.command, self.headers.get("Range", ""))
-    def _send(self, body):
-        start, end, code = 0, size - 1, 200
-        r = self.headers.get("Range")
-        if r and r.startswith("bytes="):
-            a, _, b = r[6:].partition("-")
-            if a: start = int(a)
-            if b: end = min(int(b), size - 1)
-            code = 206
-        self.send_response(code)
-        self.send_header("Accept-Ranges", "bytes")
-        self.send_header("Content-Length", str(end - start + 1))
-        if code == 206:
-            self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, size))
-        self.end_headers()
-        if not body:
-            return
-        try:
-            with open(path, "rb") as f:
-                f.seek(start)
-                left = end - start + 1
-                while left > 0:
-                    d = f.read(min(1048576, left))
-                    if not d: break
-                    self.wfile.write(d)
-                    left -= len(d)
-        except (BrokenPipeError, ConnectionResetError):
-            pass
-    def do_GET(self): self._send(True)
-    def do_HEAD(self): self._send(False)
-httpd = ThreadingHTTPServer(("0.0.0.0", PORT), H)
-threading.Thread(target=httpd.serve_forever, daemon=True).start()
-url = "http://%s:%d/%s" % (phone_ip, PORT, name)
-print("Phone IP:", phone_ip)
-print("URL:", url)
+pkg_name = input("PKG Name: ").strip()
+
+pkg_dir = "/sdcard/Download"
+if os.path.exists(pkg_dir):
+    os.chdir(pkg_dir)
+
+phone_ip = get_ip()
+pkg_url = f"http://{phone_ip}:{PORT}/{urllib.parse.quote(pkg_name)}"
+
+payload = json.dumps({
+    "type": "direct",
+    "packages": [pkg_url]
+}).encode('utf-8')
+
+rpi_url = f"http://{ps4_ip}:12800/server/install"
+
+print(f"\n[+] Phone IP: {phone_ip}")
+print(f"[+] Package URL: {pkg_url}")
+print(f"[+] Sending payload to PS4 ({ps4_ip}:12800)...")
+
 try:
-    r = requests.post("http://%s:%d/api/install" % (ps4_ip, RPI), json={"type": "direct", "packages": [url]}, timeout=30)
-    print("PS4:", r.status_code, r.text)
+    req = urllib.request.Request(rpi_url, data=payload, headers={'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=10) as response:
+        print("[+] PS4 Response:", response.read().decode())
 except Exception as e:
-    print("FAILED:", e)
-input("Server running. Press Enter when download finishes.\n")
-httpd.shutdown()
+    print(f"[!] Sent/Background status: {e}")
+
+socketserver.TCPServer.allow_reuse_address = True
+with socketserver.TCPServer(("", PORT), http.server.SimpleHTTPRequestHandler) as httpd:
+    print(f"\n[+] Server running at port {PORT}. Press Enter when download finishes.")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[-] Server stopped.")
