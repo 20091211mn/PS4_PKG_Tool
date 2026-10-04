@@ -1,3 +1,4 @@
+import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -167,6 +168,9 @@ class _SplitTabState extends State<SplitTab> {
         if (mounted) setState(() => _progress = p);
       });
       setState(() => _status = 'تم التقسيم ✓\n$dir');
+      final base = _path!.split('/').last;
+      final files = Directory(dir).listSync().whereType<File>().where((x) => x.path.split('/').last.startsWith('$base.part')).map((x) => XFile(x.path)).toList();
+      if (Platform.isIOS && files.isNotEmpty) await Share.shareXFiles(files);
     } catch (e) {
       setState(() => _status = 'فشل التقسيم: $e');
     } finally {
@@ -262,6 +266,7 @@ class _MergeTabState extends State<MergeTab> {
         if (mounted) setState(() => _progress = p);
       });
       setState(() => _status = 'تم الدمج ✓\n$out');
+      if (Platform.isIOS) await Share.shareXFiles([XFile(out)]);
     } catch (e) {
       setState(() => _status = 'فشل الدمج: $e');
     } finally {
