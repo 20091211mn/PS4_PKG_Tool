@@ -22,6 +22,13 @@ jobs:
       - name: Generate iOS Project
         run: flutter create --platforms=ios .
 
+      - name: Patch Info.plist
+        run: |
+          P=ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" $P
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" $P
+          /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 'Needed to send PKG files to PS4'" $P
+
       - name: Install Dependencies
         run: flutter pub get
 
