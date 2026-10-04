@@ -1,0 +1,62 @@
+import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:wakelock_plus/wakelock_plus.dart';
+
+class TransferTab extends StatefulWidget {
+  const TransferTab({super.key});
+  @override
+  State<TransferTab> createState() => _TransferTabState();
+}
+
+class _TransferTabState extends State<TransferTab> {
+  static const int rpiPort = 12800;
+  static const int serverPort = 9090;
+  final _ip = TextEditingController(text: '10.191.41.57');
+  final _path = TextEditingController();
+  String _status = 'افتح Remote Package Installer على الـ PS4 أولاً';
+  String _speed = '';
+  bool _ok = false, _busy = false;
+  double _progress = 0;
+  int _sent = 0, _lastSent = 0, _size = 1;
+  HttpServer? _server;
+  Timer? _timer;
+
+  Future<void> _pick() async {
+    final r = await FilePicker.platform.pickFiles(type: FileType.any);
+    if (r != null && r.files.single.path != null) {
+      setState(() => _path.text = r.files.single.path!);
+    }
+  }
+
+  Future<String> _wifiIp() async {
+    String fallback = '';
+    for (var i in await NetworkInterface.list()) {
+      final n = i.name.toLowerCase();
+      for (var a in i.addresses) {
+        if (a.type != InternetAddressType.IPv4 || a.isLoopback) continue;
+        if (n.contains('wlan') || n.contains('wifi')) return a.address;
+        if (!n.contains('rmnet') && !n.contains('ccmni')) fallback = a.address;
+      }
+    }
+    return fallback;
+  }
+
+  Future<void> _check() async {
+    setState(() => _status = 'جاري الفحص...');
+    try {
+      final r = await http
+          .post(Uri.parse('http://${_ip.text.trim()}:$rpiPort/api/install'),
+              headers: {'Content-Type': 'application/json'}, body: '{}')
+          .timeout(const Duration(seconds: 4));
+      _ok = true;
+      _status = 'التطبيق شغّال على الـ PS4 ✓ (${r.statusCode})';
+    } catch (e) {
+      _ok = false;
+      _status = 'افتح Remote Package Installer على الـ PS4 وخليه على الشاشة';
+    }
+    if (mounted) setState(() {});
+  }

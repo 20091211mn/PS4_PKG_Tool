@@ -18,9 +18,12 @@ class _TransferTabState extends State<TransferTab> {
   final _ip = TextEditingController(text: '10.191.41.57');
   final _path = TextEditingController();
   String _status = 'افتح Remote Package Installer على الـ PS4 أولاً';
+  String _speed = '';
   bool _ok = false, _busy = false;
   double _progress = 0;
+  int _sent = 0, _lastSent = 0, _size = 1;
   HttpServer? _server;
+  Timer? _timer;
 
   Future<void> _pick() async {
     final r = await FilePicker.platform.pickFiles(type: FileType.any);
@@ -59,10 +62,11 @@ class _TransferTabState extends State<TransferTab> {
   }
 
   Future<void> _stop() async {
+    _timer?.cancel();
     await _server?.close(force: true);
     _server = null;
     await WakelockPlus.disable();
-    if (mounted) setState(() { _busy = false; _status = 'تم إيقاف السيرفر'; });
+    if (mounted) setState(() { _busy = false; _speed = ''; _status = 'تم إيقاف السيرفر'; });
   }
 
   Future<void> _start() async {
@@ -79,12 +83,25 @@ class _TransferTabState extends State<TransferTab> {
     }
     final size = await file.length();
     final name = file.path.split('/').last;
+    _size = size;
+    _sent = 0;
+    _lastSent = 0;
     setState(() { _busy = true; _progress = 0; _status = 'جاري التشغيل...'; });
     await WakelockPlus.enable();
     try {
       await _server?.close(force: true);
       _server = await HttpServer.bind(InternetAddress.anyIPv4, serverPort, shared: true);
-      int sent = 0;
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        final d = _sent - _lastSent;
+        _lastSent = _sent;
+        if (mounted) {
+          setState(() {
+            _progress = (_sent / _size).clamp(0.0, 1.0);
+            _speed = '${(d / 1048576).toStringAsFixed(1)} MB/s';
+          });
+        }
+      });
       _server!.listen((HttpRequest req) async {
         try {
           final res = req.response;
@@ -102,15 +119,26 @@ class _TransferTabState extends State<TransferTab> {
               res.headers.set('Content-Range', 'bytes $start-$end/$size');
             }
           }
+          res.bufferOutput = false;
           res.contentLength = end - start + 1;
           if (req.method == 'HEAD') { await res.close(); return; }
-          final s = file.openRead(start, end + 1).map((c) {
-            sent += c.length;
-            return c;
-          });
-          await res.addStream(s);
+          final raf = await file.open();
+          try {
+            await raf.setPosition(start);
+            int left = end - start + 1;
+            while (left > 0) {
+              final n = left < 1048576 ? left : 1048576;
+              final chunk = await raf.read(n);
+              if (chunk.isEmpty) break;
+              res.add(chunk);
+              await res.flush();
+              left -= chunk.length;
+              _sent += chunk.length;
+            }
+          } finally {
+            await raf.close();
+          }
           await res.close();
-          if (mounted) setState(() => _progress = (sent / size).clamp(0.0, 1.0));
         } catch (_) {}
       });
       final url = 'http://$phone:$serverPort/${Uri.encodeComponent(name)}';
@@ -125,6 +153,7 @@ class _TransferTabState extends State<TransferTab> {
           ? 'بدأ التثبيت ✓ خلي التطبيق مفتوح لين يخلص'
           : 'رد PS4: ${r.statusCode} ${r.body}');
     } catch (e) {
+      _timer?.cancel();
       setState(() { _busy = false; _status = 'فشل الاتصال: $e'; });
       await WakelockPlus.disable();
     }
@@ -132,6 +161,7 @@ class _TransferTabState extends State<TransferTab> {
 
   @override
   void dispose() {
+    _timer?.cancel();
     _server?.close(force: true);
     WakelockPlus.disable();
     super.dispose();
@@ -173,6 +203,10 @@ class _TransferTabState extends State<TransferTab> {
           ]),
           const Spacer(),
           if (_busy) LinearProgressIndicator(value: _progress, color: const Color(0xFF7C4DFF)),
+          if (_busy) Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('${(_progress * 100).toStringAsFixed(1)}%   $_speed', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ),
           const SizedBox(height: 10),
           Text(_status, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: _status.contains('✓') ? Colors.greenAccent : Colors.grey)),
           const SizedBox(height: 15),
