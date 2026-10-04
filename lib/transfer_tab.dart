@@ -141,7 +141,7 @@ class _TransferTabState extends State<TransferTab> {
           await res.close();
         } catch (_) {}
       });
-      final url = 'http://$phone:$serverPort/${Uri.encodeComponent(name)}';
+      final url = 'http://$phone:$serverPort/package.pkg';
       setState(() => _status = 'إرسال الأمر للـ PS4...');
       final r = await http
           .post(Uri.parse('http://$ps4:$rpiPort/api/install'),
