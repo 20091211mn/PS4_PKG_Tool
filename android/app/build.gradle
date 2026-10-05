@@ -4,68 +4,31 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
-}
-
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
-}
-
-def flutterVersionName = localProperties.getProperty('flutter.versionName')
-if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
-}
-
 android {
     namespace "com.example.ps4_pkg_tool"
-    compileSdk 36
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = '17'
-    }
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.example.ps4_pkg_tool"
         minSdk 21
-        targetSdk 36
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
-    }
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
 
-    flavorDimensions "app_type"
-
-    productFlavors {
-        official {
-            dimension "app_type"
-            applicationId "com.example.ps4_pkg_tool"
-            manifestPlaceholders = [app_name: "PS4 PKG Tool"]
-        }
-        dev {
-            dimension "app_type"
-            applicationId "com.example.ps4_pkg_tool.dev"
-            applicationIdSuffix ".dev"
-            manifestPlaceholders = [app_name: "PS4 PKG Admin"]
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
         }
     }
 
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
 
 flutter {
-    source '../..'
+    source "../.."
 }
