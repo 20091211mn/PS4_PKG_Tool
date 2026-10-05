@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "960296980312",
+    "project_id": "ps4-store",
+    "storage_bucket": "ps4-store.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:960296980312:android:a12d90e9d6a5b3d49a5f2d",
+        "android_client_info": {
+          "package_name": "com.ps4pkg.studio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBh5WV3IRKCKgDIZBSpF2Qacvr5A9ne28E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

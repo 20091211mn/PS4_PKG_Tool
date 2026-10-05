@@ -30,6 +30,26 @@ jobs:
       - name: Regenerate missing Android files
         run: flutter create . --platforms=android
 
+      - name: Setup Firebase
+        run: |
+          cp firebase/google-services.json android/app/google-services.json
+          python3 - <<'PY'
+          import re, os
+          for n in ('android/settings.gradle', 'android/settings.gradle.kts'):
+              if os.path.exists(n):
+                  t = open(n).read()
+                  if 'com.google.gms.google-services' not in t:
+                      t = re.sub(r'(plugins\s*\{)', r'\1\n    id "com.google.gms.google-services" version "4.4.2" apply false', t, count=1)
+                      open(n, 'w').write(t)
+          for n in ('android/app/build.gradle', 'android/app/build.gradle.kts'):
+              if os.path.exists(n):
+                  t = open(n).read()
+                  if 'com.google.gms.google-services' not in t:
+                      t = re.sub(r'(plugins\s*\{)', r'\1\n    id "com.google.gms.google-services"', t, count=1)
+                      open(n, 'w').write(t)
+          PY
+          grep -n "google-services" android/settings.gradle* android/app/build.gradle*
+
       - name: Clean & Get Dependencies
         run: |
           flutter clean
