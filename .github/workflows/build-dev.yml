@@ -27,6 +27,41 @@ jobs:
       - name: Regenerate missing Android files
         run: flutter create . --platforms=android
 
+      - name: Upgrade Gradle plugins
+        run: |
+          sed -i -E 's/(id "com.android.application" version ")[0-9.]+(")/\18.9.1\2/' android/settings.gradle
+          sed -i -E 's/(id "org.jetbrains.kotlin.android" version ")[0-9.]+(")/\12.1.0\2/' android/settings.gradle
+          sed -i -E 's#gradle-[0-9.]+-(all|bin).zip#gradle-8.11.1-all.zip#' android/gradle/wrapper/gradle-wrapper.properties
+          grep -n "version" android/settings.gradle
+          cat android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Fix applicationId
+        run: |
+          F=android/app/build.gradle
+          sed -i '/applicationIdSuffix/d' $F
+          sed -i 's/com.example.ps4_pkg_tool.dev/com.ps4pkg.admin/g' $F
+          sed -i 's/com.example.ps4_pkg_tool/com.ps4pkg.studio/g' $F
+          grep -n "applicationId\|namespace" $F
+
+      - name: Setup Firebase
+        run: |
+          cp firebase/google-services.json android/app/google-services.json
+          python3 - <<'PY'
+          import re, os
+          for n in ('android/settings.gradle', 'android/settings.gradle.kts'):
+              if os.path.exists(n):
+                  t = open(n).read()
+                  if 'com.google.gms.google-services' not in t:
+                      t = re.sub(r'(plugins\s*\{)', r'\1\n    id "com.google.gms.google-services" version "4.4.2" apply false', t, count=1)
+                      open(n, 'w').write(t)
+          for n in ('android/app/build.gradle', 'android/app/build.gradle.kts'):
+              if os.path.exists(n):
+                  t = open(n).read()
+                  if 'com.google.gms.google-services' not in t:
+                      t = re.sub(r'(plugins\s*\{)', r'\1\n    id "com.google.gms.google-services"', t, count=1)
+                      open(n, 'w').write(t)
+          PY
+
       - name: Clean & Get Dependencies
         run: |
           flutter clean

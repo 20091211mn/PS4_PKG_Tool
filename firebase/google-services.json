@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:960296980312:android:757681caa5a7b0a79a5f2d",
+        "android_client_info": {
+          "package_name": "com.ps4pkg.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBh5WV3IRKCKgDIZBSpF2Qacvr5A9ne28E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:960296980312:android:a12d90e9d6a5b3d49a5f2d",
         "android_client_info": {
           "package_name": "com.ps4pkg.studio"
