@@ -32,11 +32,19 @@ jobs:
 
       - name: Upgrade Gradle plugins
         run: |
-          sed -i -E 's/(id "com.android.application" version ")[0-9.]+(")/\19.0.0\2/' android/settings.gradle
+          sed -i -E 's/(id "com.android.application" version ")[0-9.]+(")/\18.9.1\2/' android/settings.gradle
           sed -i -E 's/(id "org.jetbrains.kotlin.android" version ")[0-9.]+(")/\12.1.0\2/' android/settings.gradle
-          sed -i -E 's#gradle-[0-9.]+-(all|bin).zip#gradle-9.1.0-all.zip#' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i -E 's#gradle-[0-9.]+-(all|bin).zip#gradle-8.11.1-all.zip#' android/gradle/wrapper/gradle-wrapper.properties
           grep -n "version" android/settings.gradle
           cat android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Fix applicationId
+        run: |
+          F=android/app/build.gradle
+          sed -i '/applicationIdSuffix/d' $F
+          sed -i 's/com.example.ps4_pkg_tool.dev/com.ps4pkg.admin/g' $F
+          sed -i 's/com.example.ps4_pkg_tool/com.ps4pkg.studio/g' $F
+          grep -n "applicationId\|namespace" $F
 
       - name: Setup Firebase
         run: |
