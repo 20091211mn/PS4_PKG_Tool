@@ -72,7 +72,7 @@ jobs:
           flutter pub get
 
       - name: Build Official Release APK
-        run: flutter build apk --flavor official --target lib/main.dart --release --no-tree-shake-icons --android-skip-build-dependency-validation
+        run: flutter build apk --release --flavor official --target lib/main.dart --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
