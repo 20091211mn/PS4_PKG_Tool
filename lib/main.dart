@@ -1,9 +1,11 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+  try { await Firebase.initializeApp(); } catch (_) {}
     
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);

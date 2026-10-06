@@ -43,6 +43,19 @@ jobs:
           sed -i 's/com.example.ps4_pkg_tool/com.ps4pkg.studio/g' $F
           grep -n "applicationId\|namespace" $F
 
+      - name: Fix MainActivity package
+        run: |
+          D=android/app/src/main
+          NEW=$D/kotlin/com/ps4pkg/studio
+          mkdir -p $NEW
+          for f in $(find $D -name "MainActivity.*"); do
+            cp "$f" $NEW/MainActivity.kt
+            [ "$f" != "$NEW/MainActivity.kt" ] && rm "$f"
+          done
+          sed -i 's/^package .*/package com.ps4pkg.studio/' $NEW/MainActivity.kt
+          find $D -name "MainActivity.*"
+          cat $NEW/MainActivity.kt
+
       - name: Setup Firebase
         run: |
           cp firebase/google-services.json android/app/google-services.json
