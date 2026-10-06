@@ -27,12 +27,6 @@ jobs:
       - name: Regenerate missing Android files
         run: flutter create . --platforms=android
 
-      - name: Fix compileSdk
-        run: |
-          F=android/app/build.gradle
-          sed -i -E 's/compileSdk(Version)? *=? *[a-zA-Z.]*[0-9]*/compileSdk = 36/' $F
-          sed -i -E 's/compileSdkVersion +[a-zA-Z.0-9]+/compileSdk = 36/' $F
-          grep -n "compileSdk" $F
 
       - name: Clean & Get Dependencies
         run: |
