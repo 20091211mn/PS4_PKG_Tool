@@ -8,6 +8,21 @@ android {
     namespace "com.example.ps4_pkg_tool"
     compileSdk 34
 
+    flavorDimensions "default"
+
+    productFlavors {
+        dev {
+            dimension "default"
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
+        }
+        official {
+            dimension "default"
+            applicationIdSuffix ".official"
+            versionNameSuffix "-official"
+        }
+    }
+
     defaultConfig {
         applicationId "com.example.ps4_pkg_tool"
         minSdk 21
