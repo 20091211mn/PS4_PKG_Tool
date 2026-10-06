@@ -1,4 +1,4 @@
- name: Build Developer Admin APK
+name: Build Developer Admin APK
 
 on:
   push:
@@ -27,21 +27,13 @@ jobs:
       - name: Regenerate missing Android files
         run: flutter create . --platforms=android
 
-      - name: Upgrade Gradle plugins
-        run: |
-          sed -i -E 's/(id "com.android.application" version ")[0-9.]+(")/\18.3.0\2/' android/settings.gradle
-          sed -i -E 's/(id "org.jetbrains.kotlin.android" version ")[0-9.]+(")/\12.2.20\2/' android/settings.gradle
-          sed -i -E 's#gradle-[0-9.]+-(all|bin).zip#gradle-8.14.3-all.zip#' android/gradle/wrapper/gradle-wrapper.properties
-          grep -n "version" android/settings.gradle
-          cat android/gradle/wrapper/gradle-wrapper.properties
-
       - name: Clean & Get Dependencies
         run: |
           flutter clean
           flutter pub get
 
       - name: Build Dev Admin Release APK
-        run: flutter build apk --release --flavor dev --target lib/main.dart --no-tree-shake-icons --android-skip-build-dependency-validation
+        run: flutter build apk --release --flavor dev --target lib/main.dart --no-tree-shake-icons
 
       - name: Upload Dev Admin APK
         uses: actions/upload-artifact@v4
