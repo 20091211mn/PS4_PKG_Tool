@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace "com.example.ps4_pkg_tool"
+    namespace "com.ps4pkg.studio"
     compileSdk 34
 
     flavorDimensions "default"
@@ -13,18 +13,18 @@ android {
     productFlavors {
         dev {
             dimension "default"
-            applicationIdSuffix ".dev"
+            applicationId "com.ps4pkg.dev"
             versionNameSuffix "-dev"
         }
         official {
             dimension "default"
-            applicationIdSuffix ".official"
+            applicationId "com.ps4pkg.studio"
             versionNameSuffix "-official"
         }
     }
 
     defaultConfig {
-        applicationId "com.example.ps4_pkg_tool"
+        applicationId "com.ps4pkg.studio"
         minSdk 21
         targetSdk 34
         versionCode 1
