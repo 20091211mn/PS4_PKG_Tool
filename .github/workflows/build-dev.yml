@@ -25,7 +25,7 @@ jobs:
           channel: "stable"
 
       - name: Regenerate missing Android files
-        run: flutter create . --platforms=android
+        run: flutter create . --platforms=android && echo "android.newDsl=false" >> android/gradle.properties
 
 
       - name: Clean & Get Dependencies
