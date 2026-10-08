@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace "com.ps4pkg.studio"
-    compileSdk 36
+    compileSdk = 36
 
     flavorDimensions "default"
 
     productFlavors {
         dev {
             dimension "default"
-            applicationId "com.ps4pkg.dev"
+            applicationId "com.ps4pkg.admin"
             versionNameSuffix "-dev"
         }
         official {
