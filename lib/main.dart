@@ -1,3 +1,4 @@
+import 'store_tab.dart';
 import 'split_merge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'transfer_tab.dart';
@@ -70,6 +71,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     SplitTab(),
     MergeTab(),
     TransferTab(),
+    StoreTab(),
   ];
 
   @override
@@ -101,6 +103,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.send),
             label: 'نقل لـ PS4',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.storefront),
+            label: 'المتجر',
           ),
         ],
       ),
