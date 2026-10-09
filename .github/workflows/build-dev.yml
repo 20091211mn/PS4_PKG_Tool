@@ -32,7 +32,7 @@ jobs:
       - name: Build Dev Admin Release APK
         run: |
           set -o pipefail
-          flutter build apk --release --flavor dev --target lib/main.dart --no-tree-shake-icons --android-skip-build-dependency-validation 2>&1 | tee build.log || { echo '=== REAL ERROR ==='; grep -n -B3 -A15 'What went wrong\|Failed to apply\|error:' build.log | head -80; exit 1; }
+          flutter build apk --release --flavor dev --target lib/main_admin.dart --no-tree-shake-icons --android-skip-build-dependency-validation 2>&1 | tee build.log || { echo '=== REAL ERROR ==='; grep -n -B3 -A15 'What went wrong\|Failed to apply\|error:' build.log | head -80; exit 1; }
 
       - name: Upload Dev Admin APK
         uses: actions/upload-artifact@v4
