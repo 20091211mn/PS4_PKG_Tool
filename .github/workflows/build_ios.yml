@@ -35,9 +35,9 @@ jobs:
       - name: iOS target and bundle id
         run: |
           cd ios
-          if [ -f Podfile ]; then sed -i -E "s/^# *platform :ios, .*/platform :ios, '15.0'/; s/^platform :ios, .*/platform :ios, '15.0'/" Podfile; fi
-          sed -i -E 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' Runner.xcodeproj/project.pbxproj
-          sed -i 's/com\.example\.ps4PkgTool/com.ps4pkg.studio/g' Runner.xcodeproj/project.pbxproj
+          if [ -f Podfile ]; then sed -i '' -E "s/^# *platform :ios, .*/platform :ios, '15.0'/; s/^platform :ios, .*/platform :ios, '15.0'/" Podfile; fi
+          sed -i '' -E 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/com\.example\.ps4PkgTool/com.ps4pkg.studio/g' Runner.xcodeproj/project.pbxproj
           grep -n "IPHONEOS_DEPLOYMENT_TARGET\|PRODUCT_BUNDLE_IDENTIFIER" Runner.xcodeproj/project.pbxproj | head -6
 
       - name: Install Dependencies
