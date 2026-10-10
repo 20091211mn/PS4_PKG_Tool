@@ -38,8 +38,8 @@ class _TransferTabState extends State<TransferTab> {
       final n = i.name.toLowerCase();
       for (var a in i.addresses) {
         if (a.type != InternetAddressType.IPv4 || a.isLoopback) continue;
-        if (n.contains('wlan') || n.contains('wifi')) return a.address;
-        if (!n.contains('rmnet') && !n.contains('ccmni')) fallback = a.address;
+        if (n.contains('wlan') || n.contains('wifi') || n == 'en0') return a.address;
+        if (!n.contains('rmnet') && !n.contains('ccmni') && !n.contains('pdp_ip')) fallback = a.address;
       }
     }
     return fallback;
