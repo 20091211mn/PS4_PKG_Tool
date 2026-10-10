@@ -1,3 +1,4 @@
+import 'firebase_ios.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'store_tab.dart';
 import 'split_merge.dart';
@@ -11,7 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try { await Firebase.initializeApp(); } catch (_) {}
+  try { await Firebase.initializeApp(options: Platform.isIOS ? iosOptions : null); } catch (_) {}
   final prefs = await SharedPreferences.getInstance();
   AppSettings.themeNotifier.value = (prefs.getString('theme') ?? 'dark') == 'light' ? ThemeMode.light : ThemeMode.dark;
   AppSettings.languageNotifier.value = prefs.getString('lang') ?? 'العربية';
