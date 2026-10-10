@@ -7,7 +7,11 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'main.dart';
 
-const int kChunk = 1048576;
+const int kChunk = 8388608;
+double _lastP = -1;
+void _prog(void Function(double) cb, double p) {
+  if (p - _lastP >= 0.01 || p >= 1) { _lastP = p; cb(p); }
+}
 const Color kPurple = Color(0xFF7C4DFF);
 
 Future<void> askStorage() async {
@@ -30,6 +34,7 @@ Future<Directory> outDir() async {
 }
 
 Future<String> splitFile(String path, int parts, void Function(double) onProgress) async {
+  _lastP = -1;
   final f = File(path);
   final size = await f.length();
   final base = path.split('/').last;
@@ -45,9 +50,10 @@ Future<String> splitFile(String path, int parts, void Function(double) onProgres
         final chunk = await raf.read(min(kChunk, left));
         if (chunk.isEmpty) break;
         sink.add(chunk);
+        await sink.flush();
         left -= chunk.length;
         done += chunk.length;
-        onProgress(done / size);
+        _prog(onProgress, done / size);
       }
       await sink.flush();
       await sink.close();
@@ -65,6 +71,7 @@ class _Part {
 }
 
 Future<String> mergeFiles(List<String> paths, void Function(double) onProgress) async {
+  _lastP = -1;
   final re = RegExp(r'^(.*)\.part(\d+)$');
   String? base;
   final list = <_Part>[];
@@ -95,8 +102,9 @@ Future<String> mergeFiles(List<String> paths, void Function(double) onProgress) 
         final chunk = await raf.read(kChunk);
         if (chunk.isEmpty) break;
         sink.add(chunk);
+        await sink.flush();
         done += chunk.length;
-        onProgress(done / total);
+        _prog(onProgress, done / total);
       }
     } finally {
       await raf.close();

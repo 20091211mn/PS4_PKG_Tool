@@ -127,7 +127,7 @@ class _TransferTabState extends State<TransferTab> {
             await raf.setPosition(start);
             int left = end - start + 1;
             while (left > 0) {
-              final n = left < 1048576 ? left : 1048576;
+              final n = left < 4194304 ? left : 4194304;
               final chunk = await raf.read(n);
               if (chunk.isEmpty) break;
               res.add(chunk);

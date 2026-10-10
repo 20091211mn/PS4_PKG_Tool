@@ -128,12 +128,19 @@ class Gh {
       req.bufferOutput = false;
       int sent = 0;
       double last = 0;
-      await for (final chunk in f.openRead()) {
-        req.add(chunk);
-        sent += chunk.length;
-        await req.flush();
-        final p = sent / size;
-        if (p - last >= 0.01 || p >= 1) { last = p; onP(p); }
+      final raf = await f.open();
+      try {
+        while (true) {
+          final chunk = await raf.read(4194304);
+          if (chunk.isEmpty) break;
+          req.add(chunk);
+          await req.flush();
+          sent += chunk.length;
+          final p = sent / size;
+          if (p - last >= 0.01 || p >= 1) { last = p; onP(p); }
+        }
+      } finally {
+        await raf.close();
       }
       final res = await req.close();
       final body = await res.transform(utf8.decoder).join();
