@@ -1,3 +1,4 @@
+import 'transfer_hub.dart';
 import 'firebase_ios.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'store_tab.dart';
@@ -73,7 +74,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _pages = const [
     SplitTab(),
     MergeTab(),
-    TransferTab(),
+    TransferHub(),
     StoreTab(),
   ];
 
