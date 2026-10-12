@@ -29,6 +29,21 @@ jobs:
           flutter clean
           flutter pub get
 
+      - name: Setup signing
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > android/app/release.keystore
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=release.keystore\n' "$KS_PASS" "$KEY_PASS" "$KEY_ALIAS" > android/key.properties
+            ls -l android/app/release.keystore
+          else
+            echo "NO SIGNING SECRETS - using debug key"
+          fi
+
       - name: Build Dev Admin Release APK
         run: |
           set -o pipefail
