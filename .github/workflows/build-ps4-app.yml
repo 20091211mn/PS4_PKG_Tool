@@ -17,10 +17,14 @@ jobs:
           ref: v0.5.2
           path: oo
 
-      - name: Install Build Dependencies
+      - name: Install Dependencies and Setup OpenOrbis
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld make imagemagick
+          sudo apt-get install -y clang lld make imagemagick curl
+          cd oo
+          if [ -f "install.sh" ]; then
+            sudo ./install.sh || ./install.sh
+          fi
 
       - name: Use our logo as app icon
         run: |
