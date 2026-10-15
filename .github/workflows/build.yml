@@ -22,7 +22,14 @@ jobs:
           sudo apt-get install -y wget xz-utils make clang
           sudo mkdir -p /usr/local/openorbis
 
-      - name: Build Project
+      - name: Find Makefile and Build
         run: |
-          # تنفيذ أمر البناء مباشرة في المجلد الرئيسي للمشروع
+          # البحث التلقائي عن المجلد الذي يحتوي على ملف Makefile والدخول إليه ثم البناء
+          MAKEFILE_DIR=$(find . -name "Makefile" -maxdepth 3 -exec dirname {} \; | head -n 1)
+          if [ -z "$MAKEFILE_DIR" ]; then
+            echo "Error: Makefile not found!"
+            exit 1
+          fi
+          echo "Found Makefile in: $MAKEFILE_DIR"
+          cd "$MAKEFILE_DIR"
           make
