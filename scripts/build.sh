@@ -15,3 +15,4 @@ export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 cd "$SAMPLE" && make
 mkdir -p "$WS/out"
 find "$SAMPLE" -name "*.pkg" -exec cp {} "$WS/out/" \;
+ls -lh "$WS/out"
