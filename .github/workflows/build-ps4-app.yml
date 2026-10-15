@@ -13,6 +13,9 @@ jobs:
       - name: Get OpenOrbis Toolchain
         run: bash scripts/get_toolchain.sh
 
+      - name: Debug toolchain
+        run: bash scripts/debug.sh
+
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
