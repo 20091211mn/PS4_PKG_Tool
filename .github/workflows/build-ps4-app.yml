@@ -13,10 +13,6 @@ jobs:
       - name: Clone OpenOrbis Toolchain Recursively
         run: |
           git clone --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
-          cd oo
-          if [ -f "install.sh" ]; then
-            sudo ./install.sh
-          fi
 
       - name: Install Build Dependencies
         run: |
@@ -45,7 +41,7 @@ jobs:
 
       - name: Build Code and Create PKG
         env:
-          OO_PS4_TOOLCHAIN: /usr/local/openorbis
+          OO_PS4_TOOLCHAIN: ${{ github.workspace }}/oo
         run: |
           cd oo/samples/hello_world
           make
