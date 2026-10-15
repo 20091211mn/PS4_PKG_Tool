@@ -19,7 +19,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld make
+          sudo apt-get install -y clang lld make imagemagick
 
       - name: Use our logo as app icon
         run: |
