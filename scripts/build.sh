@@ -12,6 +12,7 @@ for f in $(find "$SAMPLE" -name icon0.png); do $IM "$WS/assets/icon.png" -resize
 wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
 sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+for f in $(find "$SAMPLE" -name main.cpp); do cp "$WS/app/main.cpp" "$f"; done
 cd "$SAMPLE" && make
 mkdir -p "$WS/out"
 find "$SAMPLE" -name "*.pkg" -exec cp {} "$WS/out/" \;
