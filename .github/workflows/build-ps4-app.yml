@@ -31,6 +31,16 @@ jobs:
             $IM assets/icon.png -resize 512x512! PNG24:$f
           done
 
+      - name: Override Sample with Clean Code
+        run: |
+          cat << 'CPP' > oo/samples/hello_world/main.cpp
+          #include <orbis/common.h>
+          #include <orbis/libkernel.h>
+          int main() {
+              return 0;
+          }
+          CPP
+
       - name: Build Code and Create PKG
         env:
           OO_PS4_TOOLCHAIN: /usr/local/openorbis
