@@ -2,6 +2,13 @@ name: Build PS4 Homebrew App
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/**'
+      - 'assets/**'
+      - '.github/workflows/build-ps4-app.yml'
 
 jobs:
   build-ps4:
