@@ -74,6 +74,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _pages = const [
     SplitTab(),
     MergeTab(),
+    TransferHub(),
     StoreTab(),
   ];
 
@@ -102,6 +103,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.merge_type),
             label: 'دمج',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.send),
+            label: 'نقل لـ PS4',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.storefront),
