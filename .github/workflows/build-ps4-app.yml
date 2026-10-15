@@ -10,17 +10,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download & Setup OpenOrbis SDK with LLVM Headers
+      - name: Clone OpenOrbis Toolchain Recursively
         run: |
-          curl -sL https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.2/OpenOrbis-PS4-Toolchain-v0.5.2.tar.gz -o openorbis.tar.gz
-          mkdir -p oo
-          tar -xzf openorbis.tar.gz -C oo
-          chmod +x oo/bin/linux/* oo/bin/linux/PkgTool.Core 2>/dev/null || true
+          git clone --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
+          cd oo
+          if [ -f "install.sh" ]; then
+            sudo ./install.sh
+          fi
 
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld make imagemagick libc++-dev libc++abi-dev
+          sudo apt-get install -y imagemagick
 
       - name: Use our logo as app icon
         run: |
@@ -32,14 +33,10 @@ jobs:
 
       - name: Build Code and Create PKG
         env:
-          OO_PS4_TOOLCHAIN: ${{ github.workspace }}/oo
-          PATH: ${{ github.workspace }}/oo/bin/linux:${{ env.PATH }}
+          OO_PS4_TOOLCHAIN: /usr/local/openorbis
         run: |
           cd oo/samples/hello_world
           make
-          if command -v PkgTool.Core >/dev/null 2>&1; then
-            PkgTool.Core pkg_build pkg/pkg.gp4 .
-          fi
 
       - name: Upload PKG Artifact
         uses: actions/upload-artifact@v4
