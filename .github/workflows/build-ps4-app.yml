@@ -31,15 +31,17 @@ jobs:
             $IM assets/icon.png -resize 512x512! PNG24:$f
           done
 
-      - name: Override Sample with Clean Code
+      - name: Override All Main Files with Clean Code
         run: |
-          cat << 'CPP' > oo/samples/hello_world/main.cpp
+          for f in $(find oo/samples/hello_world -name main.cpp); do
+            cat << 'CPP' > "$f"
           #include <orbis/common.h>
           #include <orbis/libkernel.h>
           int main() {
               return 0;
           }
           CPP
+          done
 
       - name: Build Code and Create PKG
         env:
