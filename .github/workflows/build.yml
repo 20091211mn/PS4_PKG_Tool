@@ -21,5 +21,6 @@ jobs:
 
       - name: Build Project
         run: |
+          # قم بتعديل هذا المسار إذا كان مشروعك ليس في هذا المجلد الفرعي
           cd oo/samples/hello_world
           make
