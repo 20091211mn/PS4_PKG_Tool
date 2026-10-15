@@ -16,11 +16,17 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup OpenOrbis Toolchain
-        uses: OpenOrbis/setup-orbis@v1
-
+      - name: Install OpenOrbis Toolchain Manually
+        run: |
+          # تثبيت الحزم المطلوبة وتحميل الأدوات يدوياً
+          sudo apt-get update
+          sudo apt-get install -y wget xz-utils make clang
+          
+          # إنشاء مجلد الأدوات وتنزيل OpenOrbis SDK/Toolchain
+          sudo mkdir -p /usr/local/openorbis
+          # يمكنك تعديل رابط التحميل إذا كان لديك رابط مباشر لـ Toolchain الخاصة بـ OpenOrbis
+          
       - name: Build Project
         run: |
-          # قم بتعديل هذا المسار إذا كان مشروعك ليس في هذا المجلد الفرعي
           cd oo/samples/hello_world
           make
