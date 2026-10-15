@@ -10,16 +10,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get OpenOrbis Toolchain
-        uses: actions/checkout@v4
-        with:
-          repository: OpenOrbis/OpenOrbis-PS4-Toolchain
-          path: oo
+      - name: Setup OpenOrbis SDK Release
+        run: |
+          wget https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.2/OpenOrbis-PS4-Toolchain-v0.5.2.tar.gz
+          mkdir -p oo
+          tar -xzf OpenOrbis-PS4-Toolchain-v0.5.2.tar.gz -C oo
+          chmod +x oo/bin/linux/* oo/bin/linux/PkgTool.Core
 
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld make imagemagick
+          sudo apt-get install -y clang lld make imagemagick libstdc++-12-dev
 
       - name: Use our logo as app icon
         run: |
@@ -29,14 +30,16 @@ jobs:
             $IM assets/icon.png -resize 512x512! PNG24:$f
           done
 
-      - name: Build with OpenOrbis
+      - name: Build Code and Create PKG
         env:
           OO_PS4_TOOLCHAIN: ${{ github.workspace }}/oo
+          PATH: ${{ github.workspace }}/oo/bin/linux:${{ env.PATH }}
         run: |
           cd oo/samples/hello_world
           make
+          PkgTool.Core pkg_build pkg/pkg.gp4 .
 
-      - name: Upload PKG
+      - name: Upload PKG Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PS4-App-PKG
