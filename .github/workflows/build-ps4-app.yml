@@ -1,0 +1,38 @@
+name: Build PS4 Homebrew App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ps4:
+    name: Build PS4 PKG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get OpenOrbis samples
+        uses: actions/checkout@v4
+        with:
+          repository: OpenOrbis/OpenOrbis-PS4-Toolchain
+          path: oo
+
+      - name: Use our logo as app icon
+        run: |
+          IM=$(command -v magick || command -v convert)
+          find oo/samples/hello_world -name icon0.png
+          for f in $(find oo/samples/hello_world -name icon0.png); do
+            $IM assets/icon.png -resize 512x512! PNG24:$f
+          done
+
+      - name: Build with OpenOrbis
+        uses: OpenOrbis/toolchain-action@main
+        with:
+          version: v0.5.1
+          command: cd oo/samples/hello_world; make; PkgTool.Core pkg_build pkg/pkg.gp4 .
+
+      - name: Upload PKG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS4-App-PKG
+          path: oo/samples/hello_world/*.pkg
+          if-no-files-found: error
