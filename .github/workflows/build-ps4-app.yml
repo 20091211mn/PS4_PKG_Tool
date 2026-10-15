@@ -16,7 +16,7 @@ jobs:
           cd oo
           if [ -f "install.sh" ]; then
             chmod +x install.sh
-            sudo ./install.sh || ./install.sh
+            sudo ./install.sh
           fi
 
       - name: Install Build Dependencies
@@ -34,7 +34,7 @@ jobs:
 
       - name: Build Code and Create PKG
         env:
-          OO_PS4_TOOLCHAIN: ${{ github.workspace }}/oo
+          OO_PS4_TOOLCHAIN: /usr/local/openorbis
         run: |
           cd oo/samples/hello_world
           make
