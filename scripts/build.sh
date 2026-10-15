@@ -17,3 +17,5 @@ cd "$SAMPLE" && make
 mkdir -p "$WS/out"
 find "$SAMPLE" -name "*.pkg" -exec cp {} "$WS/out/" \;
 ls -lh "$WS/out"
+find "$SAMPLE" -name eboot.bin -exec ls -l {} \;
+md5sum "$WS/app/main.cpp"
