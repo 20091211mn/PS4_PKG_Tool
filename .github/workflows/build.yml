@@ -1,0 +1,25 @@
+name: Build PS4 PKG
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup OpenOrbis Toolchain
+        uses: OpenOrbis/setup-orbis@v1
+
+      - name: Build Project
+        run: |
+          cd oo/samples/hello_world
+          make
