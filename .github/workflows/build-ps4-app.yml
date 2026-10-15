@@ -10,11 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get OpenOrbis samples
+      - name: Get OpenOrbis Toolchain
         uses: actions/checkout@v4
         with:
           repository: OpenOrbis/OpenOrbis-PS4-Toolchain
           path: oo
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld make
 
       - name: Use our logo as app icon
         run: |
@@ -25,10 +30,11 @@ jobs:
           done
 
       - name: Build with OpenOrbis
-        uses: OpenOrbis/toolchain-action@main
-        with:
-          version: v0.5.1
-          command: cd oo/samples/hello_world; make; PkgTool.Core pkg_build pkg/pkg.gp4 .
+        env:
+          OO_PS4_TOOLCHAIN: ${{ github.workspace }}/oo
+        run: |
+          cd oo/samples/hello_world
+          make
 
       - name: Upload PKG
         uses: actions/upload-artifact@v4
