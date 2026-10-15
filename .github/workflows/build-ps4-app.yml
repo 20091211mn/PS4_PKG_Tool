@@ -10,45 +10,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Clone OpenOrbis Toolchain Recursively
-        run: |
-          git clone --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
+      - name: Get OpenOrbis Toolchain
+        run: bash scripts/get_toolchain.sh
 
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick
+          sudo apt-get install -y imagemagick clang lld make
 
-      - name: Use our logo as app icon
-        run: |
-          IM=$(command -v magick || command -v convert)
-          find oo/samples/hello_world -name icon0.png
-          for f in $(find oo/samples/hello_world -name icon0.png); do
-            $IM assets/icon.png -resize 512x512! PNG24:$f
-          done
-
-      - name: Override All Main Files with Clean Code
-        run: |
-          for f in $(find oo/samples/hello_world -name main.cpp); do
-            cat << 'CPP' > "$f"
-          #include <orbis/common.h>
-          #include <orbis/libkernel.h>
-          int main() {
-              return 0;
-          }
-          CPP
-          done
-
-      - name: Build Code and Create PKG
-        env:
-          OO_PS4_TOOLCHAIN: ${{ github.workspace }}/oo
-        run: |
-          cd oo/samples/hello_world
-          make
+      - name: Build and create PKG
+        run: bash scripts/build.sh
 
       - name: Upload PKG Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PS4-App-PKG
-          path: oo/samples/hello_world/*.pkg
-          if-no-files-found: ignore
+          path: out/*.pkg
+          if-no-files-found: warn
