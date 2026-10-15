@@ -1,11 +1,4 @@
-#!/usr/bin/env bash
-echo "=== release assets ==="
-grep -E "tag_name|browser_download_url" release.json || true
-echo "=== top of oo ==="
-ls -la oo
-echo "=== depth 2 ==="
-find oo -maxdepth 2 | head -50
-echo "=== any orbis dirs ==="
-find oo -type d -name orbis | head
-echo "=== any common.h ==="
-find oo -name common.h | head
+for D in $(find oo -type d -path "*samples/SDL2"); do echo "== $D"; ls "$D" | head -30; done
+cat oo/OpenOrbis/PS4Toolchain/samples/SDL2/Makefile 2>/dev/null | head -80
+ls oo/OpenOrbis/PS4Toolchain/lib | head -60
+ls oo/OpenOrbis/PS4Toolchain/include | head -40
