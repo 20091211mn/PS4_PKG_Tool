@@ -22,14 +22,13 @@ jobs:
           sudo apt-get install -y wget xz-utils make clang
           sudo mkdir -p /usr/local/openorbis
 
-      - name: Find Makefile and Build
+      - name: Build PS4 Component
         run: |
-          # البحث التلقائي عن المجلد الذي يحتوي على ملف Makefile والدخول إليه ثم البناء
-          MAKEFILE_DIR=$(find . -name "Makefile" -maxdepth 3 -exec dirname {} \; | head -n 1)
-          if [ -z "$MAKEFILE_DIR" ]; then
-            echo "Error: Makefile not found!"
-            exit 1
+          # الدخول حصرياً إلى مجلد الـ PS4 والبناء من داخله دون المساس ببقية الملفات
+          cd ps4-pkg-pc
+          if [ -f "Makefile" ]; then
+            make
+          else
+            echo "Makefile not found in ps4-pkg-pc, checking files..."
+            ls -la
           fi
-          echo "Found Makefile in: $MAKEFILE_DIR"
-          cd "$MAKEFILE_DIR"
-          make
