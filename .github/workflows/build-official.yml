@@ -47,6 +47,9 @@ jobs:
             echo "NO SIGNING SECRETS - using debug key"
           fi
 
+      - name: Generate icons
+        run: dart run flutter_launcher_icons
+
       - name: Build Official Release APK
         run: |
           set -o pipefail

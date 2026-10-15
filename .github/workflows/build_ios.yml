@@ -43,6 +43,9 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Generate icons
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons_ios.yaml
+
       - name: Build iOS Application (No Codesign)
         run: flutter build ios --release --no-codesign
 
