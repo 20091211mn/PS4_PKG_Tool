@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+export OO_PS4_TOOLCHAIN="$(pwd)/oo"
 export _OO_PS4_TOOLCHAIN="$(pwd)/oo"
-export PATH="$_OO_PS4_TOOLCHAIN/bin:$PATH"
+export PATH="$OO_PS4_TOOLCHAIN/bin:$PATH"
 
 echo "Building OpenOrbis sample..."
 cd oo/samples/hello_world
