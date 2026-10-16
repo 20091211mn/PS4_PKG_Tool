@@ -10,6 +10,7 @@ on:
       - 'assets/**'
       - 'app/**'
       - 'ps4ui/**'
+      - 'ps4ui/**'
       - '.github/workflows/build-ps4-app.yml'
 
 jobs:
