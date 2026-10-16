@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <orbis/libkernel.h>
 
-#define USE_NOTIFY 0
+#define USE_NOTIFY 1
 #define BASE "/data/splitter"
 #define BUFSZ (8*1024*1024)
 #define MAXPART 4294967295LL
