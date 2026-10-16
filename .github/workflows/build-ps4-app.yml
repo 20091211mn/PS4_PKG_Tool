@@ -8,12 +8,13 @@ on:
     paths:
       - 'scripts/**'
       - 'assets/**'
+      - 'app/**'
       - '.github/workflows/build-ps4-app.yml'
 
 jobs:
   build-ps4:
     name: Build PS4 PKG
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v4
 
