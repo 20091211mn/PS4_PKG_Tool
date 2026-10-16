@@ -10,16 +10,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get OpenOrbis Toolchain
-        uses: actions/checkout@v4
-        with:
-          repository: OpenOrbis/OpenOrbis-PS4-Toolchain
-          path: oo
-
       - name: Install dependencies & ImageMagick
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick make build-essential
+          sudo apt-get install -y imagemagick make build-essential wget curl git
+
+      - name: Get OpenOrbis Toolchain & Install Sysroot
+        run: |
+          git clone https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
+          cd oo
+          # تشغيل سكربت التثبيت الجلْب ملفات الـ Sysroot والترويسات المطلوبة
+          if [ -f "install.sh" ]; then
+            chmod +x install.sh
+            ./install.sh || true
+          fi
 
       - name: Use our logo and code
         run: |

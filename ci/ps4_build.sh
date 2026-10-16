@@ -4,16 +4,15 @@ set -e
 export OO_PS4_TOOLCHAIN="$(pwd)/oo"
 export PATH="$OO_PS4_TOOLCHAIN/bin:$PATH"
 
+# تضمين بيئة العمل إذا توفرت
+if [ -f "$OO_PS4_TOOLCHAIN/env.sh" ]; then
+  source "$OO_PS4_TOOLCHAIN/env.sh"
+fi
+
 echo "Building OpenOrbis sample..."
 cd oo/samples/hello_world
 
-# تنظيف البناء السابق
 make clean || true
-
-# تعديل الـ Makefile الداخلي إذا وجد فراغ في مسارات الـ include لمنع خطأ لينكس
-if [ -f "Makefile" ]; then
-  sed -i 's|-isystem / include|-isystem $(OO_PS4_TOOLCHAIN)/include|g' Makefile || true
-fi
 
 make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN" || {
   echo "BUILD FAILED, retrying without notifications"
