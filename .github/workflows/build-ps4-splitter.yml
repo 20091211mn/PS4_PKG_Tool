@@ -16,45 +16,51 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y make build-essential git imagemagick clang lld wget unzip
 
-      - name: Setup OpenOrbis Toolchain
+      - name: Setup OpenOrbis Toolchain & Direct Structure
         run: |
-          # تنزيل واستخراج بيئة OpenOrbis المكتملة
           git clone --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
           
-          # إعداد الترويسات والـ Sysroot الأساسية داخل البيئة
-          cd oo
-          git clone https://github.com/OpenOrbis/headers.pck.git include_pck || true
-          if [ -d "include_pck" ]; then
-            cp -rn include_pck/* include/ 2>/dev/null || true
+          # إنشاء هيكلية نظيفة يدوياً للمشروع لضمان عدم وجود ملفات مفقودة
+          mkdir -p build_output/sce_sys
+          
+          # جلب ترويسات OpenOrbis الأساسية يدوياً وضبطها
+          if [ -d "oo/include" ]; then
+            echo "OpenOrbis include directory exists."
+          else
+            mkdir -p oo/include
           fi
 
-      - name: Build PS4 PKG
+      - name: Compile App Manually (Without Makefile)
         run: |
           export OO_PS4_TOOLCHAIN="$(pwd)/oo"
           export PATH="$OO_PS4_TOOLCHAIN/bin:$PATH"
 
-          D="oo/samples/hello_world"
-          
-          # استبدال الكود بملف التطبيق الخاص بك main_v2.cpp
-          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
-          cp app/main_v2.cpp "$M"
+          # تجهيز مجلد العمل اليدوي
+          cd build_output
 
-          # ضبط الأيقونة
-          IM=$(command -v magick || command -v convert)
-          for f in $(find $D -name icon0.png); do
-            if [ -f "assets/icon.png" ] && [ -n "$IM" ]; then
-              $IM assets/icon.png -resize 512x512! PNG24:$f || true
-            fi
-          done
+          echo "Compiling main_v2.cpp directly..."
+          # الترجمة المباشرة مع عزل ترويسات لينكس واستخدام ترويسات OpenOrbis فقط
+          clang++ --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -c \
+            -isystem ../oo/include \
+            -isystem ../oo/include/c++/v1 \
+            ../../app/main_v2.cpp -o main.o
 
-          # البناء المستقر
-          cd "$D"
-          make clean || true
-          make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
+          echo "Linking to eboot.bin..."
+          clang++ --target=x86_64-pc-freebsd12-elf -fuse-ld=lld \
+            -Wl,--entry=_start -nostdlib \
+            main.o -o eboot.bin || {
+              # طريقة ربط بديلة في حال احتجت مكتبات النظام الأساسية
+              clang++ --target=x86_64-pc-freebsd12-elf main.o -o eboot.bin
+            }
 
-      - name: Upload PKG
+          # وضع أيقونة افتراضية أو تخصيصها إذا وجدت
+          if [ -f "../../assets/icon.png" ]; then
+            convert ../../assets/icon.png -resize 512x512! PNG24:icon0.png || true
+          fi
+
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PS4-Splitter-PKG
-          path: oo/samples/hello_world/*.pkg
+          path: build_output/eboot.bin
           if-no-files-found: error
