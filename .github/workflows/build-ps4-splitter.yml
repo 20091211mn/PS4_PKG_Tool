@@ -18,14 +18,20 @@ jobs:
 
       - name: Use our logo and code
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
           D=oo/samples/hello_world
-          ls -R $D | head -40
-          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
+          M=$(find $D -maxdepth 3 \( -name main.cpp -o -name main.c \) | head -1)
           echo "REPLACING: $M"
           [ -n "$M" ] || { echo "no main source found"; exit 1; }
           cp app/main_v2.cpp "$M"
-          IM=$(command -v magick || command -v convert)
-          for f in $(find $D -name icon0.png); do $IM assets/icon.png -resize 512x512! PNG24:$f; done
+          IM=$(command -v magick || command -v convert || true)
+          echo "IM: $IM"
+          if [ -n "$IM" ]; then
+            for f in $(find $D -name icon0.png); do $IM assets/icon.png -resize 512x512! PNG24:$f; done
+          else
+            echo "NO IMAGEMAGICK - keeping default icon"
+          fi
 
       - name: Build with OpenOrbis (Docker)
         run: |
@@ -35,5 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PS4-Splitter-PKG
-          path: oo/samples/hello_world/*.pkg
+          path: oo/samples/hello_world/**/*.pkg
           if-no-files-found: error
