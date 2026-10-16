@@ -7,21 +7,33 @@ jobs:
   build-ps4:
     name: Build PS4 PKG
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/openorbis/toolchain:latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies & ImageMagick
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick make build-essential wget curl git
-
-      - name: Get OpenOrbis Toolchain
+      - name: Get OpenOrbis samples
         run: |
           git clone https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
 
-      - name: Build with Direct Clang Commands
+      - name: Setup code and build PKG
         run: |
-          sh ci/ps4_build.sh
+          D=oo/samples/hello_world
+          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
+          echo "REPLACING: $M"
+          cp app/main_v2.cpp "$M"
+          
+          # تعديل الصورة إن وجدت أدوات تحويل الصور
+          for f in $(find $D -name icon0.png); do
+            if command -v convert &> /dev/null; then
+              convert assets/icon.png -resize 512x512! PNG24:$f || true
+            fi
+          done
+
+          # البناء المستقر داخل بيئة OpenOrbis Docker الجاهزة
+          cd $D
+          make
 
       - name: Upload PKG
         uses: actions/upload-artifact@v4
