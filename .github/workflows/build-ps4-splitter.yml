@@ -27,11 +27,9 @@ jobs:
           IM=$(command -v magick || command -v convert)
           for f in $(find $D -name icon0.png); do $IM assets/icon.png -resize 512x512! PNG24:$f; done
 
-      - name: Build with OpenOrbis
-        uses: OpenOrbis/toolchain-action@main
-        with:
-          version: v0.5.1
-          command: sh ci/ps4_build.sh
+      - name: Build with OpenOrbis (Docker)
+        run: |
+          docker run --rm --user root -w /workspace -v "$PWD":/workspace openorbisofficial/toolchain:latest bash -c "sh ci/ps4_build.sh"
 
       - name: Upload PKG
         uses: actions/upload-artifact@v4
