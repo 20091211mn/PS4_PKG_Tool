@@ -14,70 +14,47 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick make build-essential wget curl git unzip clang lld
+          sudo apt-get install -y make build-essential git imagemagick clang lld wget unzip
 
-      - name: Setup OpenOrbis and Complete Sysroot
+      - name: Setup OpenOrbis Toolchain
         run: |
+          # تنزيل واستخراج بيئة OpenOrbis المكتملة
           git clone --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
           
+          # إعداد الترويسات والـ Sysroot الأساسية داخل البيئة
           cd oo
-          mkdir -p include sysroot/usr/include sysroot/usr/lib sysroot/sys
-          
-          # جلب ترويسات OpenOrbis الرسمية
-          git clone https://github.com/OpenOrbis/headers.pck.git temp_headers || true
-          if [ -d "temp_headers" ]; then
-            cp -r temp_headers/* include/ || true
-            cp -r temp_headers/* sysroot/usr/include/ || true
+          git clone https://github.com/OpenOrbis/headers.pck.git include_pck || true
+          if [ -d "include_pck" ]; then
+            cp -rn include_pck/* include/ 2>/dev/null || true
           fi
-          
-          # تأمين ترويسات C القياسية لمنع أي رجوع لترويسات لينكس المضيفة
-          echo '#include_next <stdio.h>' > sysroot/usr/include/stdio.h
-          echo '#include_next <stdlib.h>' > sysroot/usr/include/stdlib.h
-          echo '#include_next <string.h>' > sysroot/usr/include/string.h
 
-      - name: Build PS4 App Directly
+      - name: Build PS4 PKG
         run: |
           export OO_PS4_TOOLCHAIN="$(pwd)/oo"
           export PATH="$OO_PS4_TOOLCHAIN/bin:$PATH"
 
           D="oo/samples/hello_world"
-          mkdir -p "$D"
           
-          # إنشاء Makefile نظيف ومخصص لتجنب أخطاء العينات القديمة
-          cat << 'MKEOF' > "$D/Makefile"
-TARGET = splitter
-OBJS = main.o
-
-CC = clang
-CXX = clang++
-CFLAGS = --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -I../../include -I../../sysroot/usr/include
-CXXFLAGS = $(CFLAGS) -std=c++17
-
-all: $(TARGET).elf
-
-$(TARGET).elf: $(OBJS)
-$(CXX) $(CXXFLAGS) $(OBJS) -o $@
-
-clean:
-rm -f $(TARGET).elf $(OBJS)
-MKEOF
-
-          # نسخ كود الـ Splitter الخاص بك
-          M="$D/main.cpp"
+          # استبدال الكود بملف التطبيق الخاص بك main_v2.cpp
+          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
           cp app/main_v2.cpp "$M"
 
-          # معالجة الأيقونة
+          # ضبط الأيقونة
           IM=$(command -v magick || command -v convert)
-          if [ -f "assets/icon.png" ] && [ -n "$IM" ]; then
-            $IM assets/icon.png -resize 512x512! PNG24:"$D/icon0.png" || true
-          fi
+          for f in $(find $D -name icon0.png); do
+            if [ -f "assets/icon.png" ] && [ -n "$IM" ]; then
+              $IM assets/icon.png -resize 512x512! PNG24:$f || true
+            fi
+          done
 
+          # البناء المستقر
           cd "$D"
-          make
+          make clean || true
+          make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
 
-      - name: Upload Artifact
+      - name: Upload PKG
         uses: actions/upload-artifact@v4
         with:
           name: PS4-Splitter-PKG
-          path: oo/samples/hello_world/*.elf
+          path: oo/samples/hello_world/*.pkg
           if-no-files-found: error
