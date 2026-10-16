@@ -7,33 +7,56 @@ jobs:
   build-ps4:
     name: Build PS4 PKG
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/openorbis/toolchain:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get OpenOrbis samples
+      - name: Install dependencies
         run: |
-          git clone https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
+          sudo apt-get update
+          sudo apt-get install -y imagemagick make build-essential wget curl git unzip
 
-      - name: Setup code and build PKG
+      - name: Setup OpenOrbis Toolchain Release
         run: |
-          D=oo/samples/hello_world
-          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
-          echo "REPLACING: $M"
-          cp app/main_v2.cpp "$M"
+          # تنزيل حزمة OpenOrbis Toolchain الرسمية الجاهزة كاملة بالـ headers والـ sysroot
+          wget https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.1/OpenOrbisPS4Toolchain-v0.5.1.zip -O oo.zip || \
+          wget https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5/OpenOrbisPS4Toolchain.zip -O oo.zip
+          unzip -q oo.zip -d oo_extracted
           
-          # تعديل الصورة إن وجدت أدوات تحويل الصور
+          # توحيد مجلد الـ toolchain
+          if [ -d "oo_extracted/OpenOrbisPS4Toolchain" ]; then
+            mv oo_extracted/OpenOrbisPS4Toolchain oo
+          elif [ -d "oo_extracted/oo" ]; then
+            mv oo_extracted/oo oo
+          else
+            mv oo_extracted oo
+          fi
+          
+          # جلب عينات المشروع
+          git clone https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo_repo
+          cp -r oo_repo/samples oo/
+
+      - name: Compile PS4 PKG
+        run: |
+          export OO_PS4_TOOLCHAIN="$(pwd)/oo"
+          export PATH="$OO_PS4_TOOLCHAIN/bin:$PATH"
+          
+          D="oo/samples/hello_world"
+          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
+          echo "Replacing main code at: $M"
+          cp app/main_v2.cpp "$M"
+
+          # تغيير الأيقونة
+          IM=$(command -v magick || command -v convert)
           for f in $(find $D -name icon0.png); do
-            if command -v convert &> /dev/null; then
-              convert assets/icon.png -resize 512x512! PNG24:$f || true
+            if [ -f "assets/icon.png" ]; then
+              $IM assets/icon.png -resize 512x512! PNG24:$f || true
             fi
           done
 
-          # البناء المستقر داخل بيئة OpenOrbis Docker الجاهزة
+          # البناء باستخدام البيئة الجاهزة المكتملة
           cd $D
-          make
+          make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
 
       - name: Upload PKG
         uses: actions/upload-artifact@v4
