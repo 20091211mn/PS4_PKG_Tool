@@ -19,3 +19,5 @@ find "$SAMPLE" -name "*.pkg" -exec cp {} "$WS/out/" \;
 ls -lh "$WS/out"
 find "$SAMPLE" -name eboot.bin -exec ls -l {} \;
 md5sum "$WS/app/main.cpp"
+E=$(find "$SAMPLE" -name eboot.bin | head -1)
+echo "our code marker count: $(grep -c -a "job.txt" "$E" || true)"
