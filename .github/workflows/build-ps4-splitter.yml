@@ -16,46 +16,68 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y imagemagick make build-essential wget curl git unzip clang lld
 
-      - name: Setup OpenOrbis Environment Manually
+      - name: Setup OpenOrbis and Complete Sysroot
         run: |
-          # سحب المستودع الرسمي مباشرة
           git clone --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
           
-          # إعداد وتجهيز الترويسات والـ SDK
           cd oo
-          mkdir -p include/c++/v1
+          mkdir -p include sysroot/usr/include sysroot/usr/lib sysroot/sys
           
-          # جلب الترويسات من مستودع الـ Header المعتمد
-          git clone https://github.com/OpenOrbis/headers.pck.git include_pck || true
-          if [ -d "include_pck" ]; then
-            cp -r include_pck/* include/ || true
+          # جلب ترويسات OpenOrbis الرسمية
+          git clone https://github.com/OpenOrbis/headers.pck.git temp_headers || true
+          if [ -d "temp_headers" ]; then
+            cp -r temp_headers/* include/ || true
+            cp -r temp_headers/* sysroot/usr/include/ || true
           fi
+          
+          # تأمين ترويسات C القياسية لمنع أي رجوع لترويسات لينكس المضيفة
+          echo '#include_next <stdio.h>' > sysroot/usr/include/stdio.h
+          echo '#include_next <stdlib.h>' > sysroot/usr/include/stdlib.h
+          echo '#include_next <string.h>' > sysroot/usr/include/string.h
 
-      - name: Build PS4 PKG
+      - name: Build PS4 App Directly
         run: |
           export OO_PS4_TOOLCHAIN="$(pwd)/oo"
           export PATH="$OO_PS4_TOOLCHAIN/bin:$PATH"
 
           D="oo/samples/hello_world"
-          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
-          echo "Replacing code at: $M"
+          mkdir -p "$D"
+          
+          # إنشاء Makefile نظيف ومخصص لتجنب أخطاء العينات القديمة
+          cat << 'MKEOF' > "$D/Makefile"
+TARGET = splitter
+OBJS = main.o
+
+CC = clang
+CXX = clang++
+CFLAGS = --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -I../../include -I../../sysroot/usr/include
+CXXFLAGS = $(CFLAGS) -std=c++17
+
+all: $(TARGET).elf
+
+$(TARGET).elf: $(OBJS)
+$(CXX) $(CXXFLAGS) $(OBJS) -o $@
+
+clean:
+rm -f $(TARGET).elf $(OBJS)
+MKEOF
+
+          # نسخ كود الـ Splitter الخاص بك
+          M="$D/main.cpp"
           cp app/main_v2.cpp "$M"
 
-          # تغيير الأيقونة
+          # معالجة الأيقونة
           IM=$(command -v magick || command -v convert)
-          for f in $(find $D -name icon0.png); do
-            if [ -f "assets/icon.png" ]; then
-              $IM assets/icon.png -resize 512x512! PNG24:$f || true
-            fi
-          done
+          if [ -f "assets/icon.png" ] && [ -n "$IM" ]; then
+            $IM assets/icon.png -resize 512x512! PNG24:"$D/icon0.png" || true
+          fi
 
-          cd $D
-          # البناء مع تعطيل خيار البحث في الترويسات التي تسبب أخطاء
-          make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN" || make
+          cd "$D"
+          make
 
-      - name: Upload PKG
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PS4-Splitter-PKG
-          path: oo/samples/hello_world/*.pkg
+          path: oo/samples/hello_world/*.elf
           if-no-files-found: error
