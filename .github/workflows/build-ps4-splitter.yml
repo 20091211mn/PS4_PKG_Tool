@@ -10,11 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get OpenOrbis samples
+      - name: Get OpenOrbis Toolchain
         uses: actions/checkout@v4
         with:
           repository: OpenOrbis/OpenOrbis-PS4-Toolchain
           path: oo
+
+      - name: Install dependencies & ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick make build-essential
 
       - name: Use our logo and code
         run: |
@@ -27,11 +32,9 @@ jobs:
           IM=$(command -v magick || command -v convert)
           for f in $(find $D -name icon0.png); do $IM assets/icon.png -resize 512x512! PNG24:$f; done
 
-      - name: Build with OpenOrbis
-        uses: OpenOrbis/toolchain-action@main
-        with:
-          version: v0.5.1
-          command: sh ci/ps4_build.sh
+      - name: Build with OpenOrbis Toolchain
+        run: |
+          sh ci/ps4_build.sh
 
       - name: Upload PKG
         uses: actions/upload-artifact@v4

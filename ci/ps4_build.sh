@@ -1,5 +1,12 @@
+#!/usr/bin/env bash
 set -e
+
+export _OO_PS4_TOOLCHAIN="$(pwd)/oo"
+export PATH="$_OO_PS4_TOOLCHAIN/bin:$PATH"
+
+echo "Building OpenOrbis sample..."
 cd oo/samples/hello_world
+
 make || {
   echo "BUILD FAILED, retrying without notifications"
   M=$(find . -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
@@ -7,4 +14,3 @@ make || {
   make clean || true
   make
 }
-PkgTool.Core pkg_build pkg/pkg.gp4 .
