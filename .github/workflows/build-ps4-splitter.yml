@@ -7,46 +7,35 @@ jobs:
   build-ps4:
     name: Build PS4 PKG
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Get OpenOrbis samples
+        uses: actions/checkout@v4
+        with:
+          repository: OpenOrbis/OpenOrbis-PS4-Toolchain
+          path: oo
+
+      - name: Use our logo and code
         run: |
-          sudo apt-get update
-          sudo apt-get install -y make build-essential git imagemagick clang lld wget unzip
+          D=oo/samples/hello_world
+          ls -R $D | head -40
+          M=$(find $D -maxdepth 2 \( -name main.cpp -o -name main.c \) | head -1)
+          echo "REPLACING: $M"
+          [ -n "$M" ] || { echo "no main source found"; exit 1; }
+          cp app/main_v2.cpp "$M"
+          IM=$(command -v magick || command -v convert)
+          for f in $(find $D -name icon0.png); do $IM assets/icon.png -resize 512x512! PNG24:$f; done
 
-      - name: Setup OpenOrbis Toolchain & Direct Structure
-        run: |
-          git clone --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git oo
-          mkdir -p build_output/sce_sys
+      - name: Build with OpenOrbis
+        uses: OpenOrbis/toolchain-action@main
+        with:
+          version: v0.5.1
+          command: sh ci/ps4_build.sh
 
-      - name: Compile App Manually
-        run: |
-          # Move to output directory
-          cd build_output
-
-          echo "Compiling main_v2.cpp directly..."
-          # Compile using OpenOrbis headers and isolating host headers
-          clang++ --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -c \
-            -isystem ../oo/include \
-            -isystem ../oo/include/c++/v1 \
-            ../app/main_v2.cpp -o main.o
-
-          echo "Linking to eboot.bin..."
-          # Link object file to executable binary
-          clang++ --target=x86_64-pc-freebsd12-elf -fuse-ld=lld \
-            -Wl,--entry=_start -nostdlib \
-            main.o -o eboot.bin || clang++ --target=x86_64-pc-freebsd12-elf main.o -o eboot.bin
-
-          # Process icon if available
-          if [ -f "../assets/icon.png" ]; then
-            convert ../assets/icon.png -resize 512x512! PNG24:icon0.png || true
-          fi
-
-      - name: Upload Build Artifact
+      - name: Upload PKG
         uses: actions/upload-artifact@v4
         with:
           name: PS4-Splitter-PKG
-          path: build_output/eboot.bin
+          path: oo/samples/hello_world/*.pkg
           if-no-files-found: error
