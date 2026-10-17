@@ -35,7 +35,22 @@ jobs:
 
       - name: Build with OpenOrbis (Docker)
         run: |
-          docker run --rm --user root -w /workspace -v "$PWD":/workspace openorbisofficial/toolchain:latest bash -c "sh ci/ps4_build.sh"
+          i=0; ok=0; : > /tmp/recap.txt
+          for IMG in openorbisofficial/toolchain:latest openorbisofficial/toolchain:v0.5.1 openorbis/toolchain:latest openorbis/toolchain:v0.5.1; do
+            i=$((i+1))
+            echo "=========== TRY $IMG"
+            rc=0
+            docker run --rm --user root -w /workspace -v "$PWD":/workspace $IMG sh ci/ps4_build.sh > /tmp/a_$i.log 2>&1 || rc=$?
+            tail -n 15 /tmp/a_$i.log
+            echo "### $IMG (exit $rc)" >> /tmp/recap.txt
+            grep '^@@' /tmp/a_$i.log >> /tmp/recap.txt || true
+            if [ "$rc" -eq 0 ]; then ok=1; echo "BUILD OK WITH $IMG"; break; fi
+          done
+          if [ "$ok" != 1 ]; then
+            echo "################ FINAL RECAP"
+            cat /tmp/recap.txt
+            exit 1
+          fi
 
       - name: Upload PKG
         uses: actions/upload-artifact@v4
