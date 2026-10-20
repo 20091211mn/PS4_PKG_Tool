@@ -22,6 +22,9 @@ echo "@@ pkgs: $(find . -name '*.pkg' | tr '\n' ' ')" >> $S
 (
   set -e
   cd ../hello_ui
+  if grep -q 'create-fself' Makefile && [ ! -e $B/create-fself ] && [ -e $B/create-eboot ]; then
+    sed -i 's#create-fself#create-eboot#; s# --eboot "eboot.bin"##' Makefile
+  fi
   make
   GP4=$(find . -maxdepth 3 -name '*.gp4' | head -1)
   PkgTool.Core pkg_build "$GP4" .
