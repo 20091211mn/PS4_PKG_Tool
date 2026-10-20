@@ -33,6 +33,17 @@ jobs:
             echo "NO IMAGEMAGICK - keeping default icon"
           fi
 
+      - name: Prepare UI variant
+        run: |
+          cp -r oo/samples/hello_world oo/samples/hello_ui
+          S=oo/samples/hello_ui/hello_world
+          cp app/main_ui.cpp $S/main.cpp
+          cp oo/samples/_common/graphics.cpp oo/samples/_common/graphics.h oo/samples/_common/log.h $S/
+          sed -i '/^LIBS/ s/-lc++/-lc++ -lSceVideoOut -lSceSysmodule/' oo/samples/hello_ui/Makefile
+          sed -i 's/Hello World/PS4 PKG Manager/g' oo/samples/hello_ui/Makefile
+          grep -n '^LIBS' oo/samples/hello_ui/Makefile
+          ls $S
+
       - name: Build with OpenOrbis (Docker)
         run: |
           i=0; ok=0; : > /tmp/recap.txt
@@ -41,7 +52,7 @@ jobs:
             echo "=========== TRY $IMG"
             rc=0
             docker run --rm --user root -w /workspace -v "$PWD":/workspace $IMG sh ci/ps4_build.sh > /tmp/a_$i.log 2>&1 || rc=$?
-            tail -n 15 /tmp/a_$i.log
+            tail -n 15 /tmp/a_$i.log; grep '^@@' /tmp/a_$i.log || true
             echo "### $IMG (exit $rc)" >> /tmp/recap.txt
             grep '^@@' /tmp/a_$i.log >> /tmp/recap.txt || true
             if [ "$rc" -eq 0 ]; then ok=1; echo "BUILD OK WITH $IMG"; break; fi
@@ -58,3 +69,10 @@ jobs:
           name: PS4-Splitter-PKG
           path: oo/samples/hello_world/**/*.pkg
           if-no-files-found: error
+
+      - name: Upload UI PKG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS4-Splitter-UI-PKG
+          path: oo/samples/hello_ui/**/*.pkg
+          if-no-files-found: warn

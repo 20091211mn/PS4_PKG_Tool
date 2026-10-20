@@ -19,3 +19,10 @@ echo "@@ gp4: $GP4" >> $S
 [ -n "$GP4" ] || { echo "NO GP4 FOUND"; find . -maxdepth 3 | head -40; exit 1; }
 PkgTool.Core pkg_build "$GP4" .
 echo "@@ pkgs: $(find . -name '*.pkg' | tr '\n' ' ')" >> $S
+(
+  set -e
+  cd ../hello_ui
+  make
+  GP4=$(find . -maxdepth 3 -name '*.gp4' | head -1)
+  PkgTool.Core pkg_build "$GP4" .
+) > /tmp/ui_build.log 2>&1 && echo "@@ ui build: OK" >> $S || { echo "@@ ui build: FAILED" >> $S; tail -n 20 /tmp/ui_build.log | sed 's/^/@@ ui: /' >> $S; }
