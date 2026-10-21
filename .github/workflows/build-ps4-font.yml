@@ -1,0 +1,43 @@
+name: Build PS4 Font Sample (baseline)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ps4-font:
+    name: Build PS4 baseline PKG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get OpenOrbis samples (matching tag)
+        run: |
+          git clone --depth 1 --branch v0.5.1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain oo || git clone --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain oo
+          echo "SAMPLES REF: $(git -C oo describe --tags --always)"
+          ls oo/samples/font oo/samples/font/pkg
+
+      - name: Build (Docker)
+        run: |
+          ok=0; : > /tmp/recap.txt
+          for IMG in openorbisofficial/toolchain:latest openorbisofficial/toolchain:v0.5.1; do
+            echo "=========== TRY $IMG"
+            rc=0
+            docker run --rm --user root -w /workspace -v "$PWD":/workspace $IMG sh ci/ps4_font_build.sh > /tmp/b.log 2>&1 || rc=$?
+            tail -n 15 /tmp/b.log
+            grep '^@@' /tmp/b.log || true
+            echo "### $IMG (exit $rc)" >> /tmp/recap.txt
+            grep '^@@' /tmp/b.log >> /tmp/recap.txt || true
+            if [ "$rc" -eq 0 ]; then ok=1; echo "BUILD OK WITH $IMG"; break; fi
+          done
+          if [ "$ok" != 1 ]; then
+            echo "################ FINAL RECAP"
+            cat /tmp/recap.txt
+            exit 1
+          fi
+
+      - name: Upload PKG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS4-Font-Sample-PKG
+          path: oo/samples/font/**/*.pkg
+          if-no-files-found: error
