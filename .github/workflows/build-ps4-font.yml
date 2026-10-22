@@ -22,7 +22,7 @@ jobs:
           for IMG in openorbisofficial/toolchain:latest openorbisofficial/toolchain:v0.5.1; do
             echo "=========== TRY $IMG"
             rc=0
-            docker run --rm --user root -w /workspace -v "$PWD":/workspace $IMG sh ci/ps4_font_build.sh > /tmp/b.log 2>&1 || rc=$?
+            docker run --rm --user root -e DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 -w /workspace -v "$PWD":/workspace $IMG sh ci/ps4_font_build.sh > /tmp/b.log 2>&1 || rc=$?
             tail -n 15 /tmp/b.log
             grep '^@@' /tmp/b.log || true
             echo "### $IMG (exit $rc)" >> /tmp/recap.txt
