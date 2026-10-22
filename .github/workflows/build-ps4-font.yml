@@ -16,6 +16,21 @@ jobs:
           echo "SAMPLES REF: $(git -C oo describe --tags --always)"
           ls oo/samples/font oo/samples/font/pkg
 
+      - name: Provide font
+        run: |
+          T=oo/samples/font/pkg/Gontserrat-Regular.ttf
+          if [ ! -f "$T" ]; then
+            F=$(find oo -iname '*.ttf' | head -1)
+            if [ -z "$F" ]; then
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq fonts-dejavu-core
+              F=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+            fi
+            echo "FONT SOURCE: $F"
+            cp "$F" "$T"
+          fi
+          ls -l "$T"
+
       - name: Build (Docker)
         run: |
           ok=0; : > /tmp/recap.txt
