@@ -1,3 +1,4 @@
+import 'ads.dart';
 import 'transfer_hub.dart';
 import 'firebase_ios.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -20,6 +21,7 @@ void main() async {
   AppSettings.themeNotifier.addListener(() => prefs.setString('theme', AppSettings.themeNotifier.value == ThemeMode.light ? 'light' : 'dark'));
   AppSettings.languageNotifier.addListener(() => prefs.setString('lang', AppSettings.languageNotifier.value));
   runApp(const PS4PKGApp());
+  Ads.init();
 }
 
 class AppSettings {

@@ -40,6 +40,14 @@ jobs:
           sed -i '' 's/com\.example\.ps4PkgTool/com.ps4pkg.studio/g' Runner.xcodeproj/project.pbxproj
           grep -n "IPHONEOS_DEPLOYMENT_TARGET\|PRODUCT_BUNDLE_IDENTIFIER" Runner.xcodeproj/project.pbxproj | head -6
 
+      - name: AdMob iOS plist (test app id)
+        run: |
+          P=ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :GADApplicationIdentifier string ca-app-pub-3940256099942544~1458002511" $P || true
+          /usr/libexec/PlistBuddy -c "Add :SKAdNetworkItems array" $P || true
+          /usr/libexec/PlistBuddy -c "Add :SKAdNetworkItems:0 dict" $P || true
+          /usr/libexec/PlistBuddy -c "Add :SKAdNetworkItems:0:SKAdNetworkIdentifier string cstr6suwn9.skadnetwork" $P || true
+
       - name: Install Dependencies
         run: flutter pub get
 
