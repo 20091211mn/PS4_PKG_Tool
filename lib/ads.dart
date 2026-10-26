@@ -141,3 +141,59 @@ class _AdBannerState extends State<AdBanner> {
     );
   }
 }
+
+class AdBanner extends StatefulWidget {
+  const AdBanner({super.key});
+  @override
+  State<AdBanner> createState() => _AdBannerState();
+}
+
+class _AdBannerState extends State<AdBanner> {
+  BannerAd? _ad;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Ads.readyNotifier.addListener(_try);
+    _try();
+  }
+
+  void _try() {
+    if (_ad != null || !Ads.ready) return;
+    _ad = BannerAd(
+      adUnitId: _bannerId(),
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          if (mounted) setState(() => _loaded = true);
+        },
+        onAdFailedToLoad: (ad, e) {
+          ad.dispose();
+          _ad = null;
+        },
+      ),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    Ads.readyNotifier.removeListener(_try);
+    _ad?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ad = _ad;
+    if (!_loaded || ad == null) return const SizedBox.shrink();
+    return Center(
+      child: SizedBox(
+        width: ad.size.width.toDouble(),
+        height: ad.size.height.toDouble(),
+        child: AdWidget(ad: ad),
+      ),
+    );
+  }
+}
