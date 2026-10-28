@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <sys/stat.h>
 #include <orbis/libkernel.h>
 #include "graphics.h"
 
@@ -243,7 +242,6 @@ static int doMerge(const char* name) {
 }
 
 int main() {
-  mkdir(BASE, 0777);
   lg = fopen(BASE "/log.txt", "w");
   sc = new Scene2D(FW, FH, 4);
   if (!sc->Init(0xC000000, 2)) {

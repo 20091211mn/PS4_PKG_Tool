@@ -1,0 +1,68 @@
+name: Build PS4 Splitter UI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ps4-ui:
+    name: Build PS4 UI PKG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get OpenOrbis samples (matching tag)
+        run: |
+          git clone --depth 1 --branch v0.5.1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain oo || git clone --depth 1 https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain oo
+          echo "SAMPLES REF: $(git -C oo describe --tags --always)"
+
+      - name: Prepare UI variant from font sample
+        run: |
+          cp -r oo/samples/font oo/samples/splitui
+          D=oo/samples/splitui
+          M=$(find $D/font -maxdepth 1 \( -name main.cpp -o -name main.c \) | head -1)
+          echo "ORIGINAL MAIN: $M"
+          [ -n "$M" ] || { echo "no main source found"; exit 1; }
+          sed -n '1,140p' "$M"
+          grep -n 'GRAPHICS_USES_FONT\|^CFLAGS\|^LIBS' $D/Makefile || true
+          DEF=""
+          grep -q '^#define GRAPHICS_USES_FONT' "$M" && DEF="#define GRAPHICS_USES_FONT"
+          { echo "$DEF"; cat app/main_ui.cpp; } > "$M"
+          echo "UI main installed: $(wc -l < "$M") lines"
+
+      - name: Provide font
+        run: |
+          T=oo/samples/splitui/pkg/Gontserrat-Regular.ttf
+          if [ ! -f "$T" ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq fonts-dejavu-core
+            cp /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf "$T"
+          fi
+          ls -l "$T"
+
+      - name: Build (Docker)
+        run: |
+          ok=0; : > /tmp/recap.txt
+          for IMG in openorbisofficial/toolchain:latest openorbisofficial/toolchain:v0.5.1; do
+            echo "=========== TRY $IMG"
+            rc=0
+            docker run --rm --user root -e DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 -w /workspace -v "$PWD":/workspace $IMG sh ci/ps4_ui_build.sh > /tmp/b.log 2>&1 || rc=$?
+            tail -n 15 /tmp/b.log
+            grep '^@@' /tmp/b.log || true
+            echo "### $IMG (exit $rc)" >> /tmp/recap.txt
+            grep '^@@' /tmp/b.log >> /tmp/recap.txt || true
+            if [ "$rc" -eq 0 ]; then ok=1; echo "BUILD OK WITH $IMG"; break; fi
+          done
+          if [ "$ok" != 1 ]; then
+            echo "################ FINAL RECAP"
+            cat /tmp/recap.txt
+            echo "################ COMPILER ERRORS"
+            grep -n 'error:\|undefined reference' /tmp/b.log | head -20
+            exit 1
+          fi
+
+      - name: Upload PKG
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS4-Splitter-UI-PKG
+          path: oo/samples/splitui/**/*.pkg
+          if-no-files-found: error
