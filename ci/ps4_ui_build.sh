@@ -3,7 +3,7 @@ B=/lib/OpenOrbisSDK/bin/linux
 : > $S
 trap 'echo "######## SUMMARY"; cat /tmp/summary.txt' EXIT
 set -e
-cd oo/samples/splitui
+cd oo/samples/font
 echo "@@ tools: $(ls $B | tr '\n' ' ')" >> $S
 echo "@@ makefile tool lines: $(grep -n 'CDIR)/' Makefile | tr '\n' '|')" >> $S
 if grep -q 'create-fself' Makefile && [ ! -e $B/create-fself ] && [ -e $B/create-eboot ]; then

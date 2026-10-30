@@ -17,8 +17,7 @@ jobs:
 
       - name: Prepare UI variant from font sample
         run: |
-          cp -r oo/samples/font oo/samples/splitui
-          D=oo/samples/splitui
+          D=oo/samples/font
           M=$(find $D/font -maxdepth 1 \( -name main.cpp -o -name main.c \) | head -1)
           echo "ORIGINAL MAIN: $M"
           [ -n "$M" ] || { echo "no main source found"; exit 1; }
@@ -33,7 +32,7 @@ jobs:
 
       - name: Provide font
         run: |
-          T=oo/samples/splitui/pkg/Gontserrat-Regular.ttf
+          T=oo/samples/font/pkg/Gontserrat-Regular.ttf
           if [ ! -f "$T" ]; then
             sudo apt-get update -qq
             sudo apt-get install -y -qq fonts-dejavu-core
@@ -66,5 +65,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PS4-Splitter-UI-PKG
-          path: oo/samples/splitui/**/*.pkg
+          path: oo/samples/font/**/*.pkg
           if-no-files-found: error
