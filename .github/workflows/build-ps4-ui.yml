@@ -25,9 +25,8 @@ jobs:
           grep -n 'GRAPHICS_USES_FONT\|^CFLAGS\|^LIBS' $D/Makefile || true
           DEF=""
           grep -q '^#define GRAPHICS_USES_FONT' "$M" && DEF="#define GRAPHICS_USES_FONT"
-          sed -i -E 's/\bint[[:space:]]+main[[:space:]]*\(/int original_font_main(/' "$M"
-          cat app/main_ui.cpp >> "$M"
-          grep -n 'int main\|original_font_main\|debugLogStream' "$M" | head
+          python3 ci/make_ui_main.py "$M" app/main_ui.cpp
+          grep -n "include\|int main\|original_font_main" "$M" | head -40
           echo "UI main installed: $(wc -l < "$M") lines"
 
       - name: Provide font
