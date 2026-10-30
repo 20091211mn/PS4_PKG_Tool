@@ -10,7 +10,13 @@ if grep -q 'create-fself' Makefile && [ ! -e $B/create-fself ] && [ -e $B/create
   sed -i 's#create-fself#create-eboot#; s# --eboot "eboot.bin"##' Makefile
   echo "@@ patched create-fself -> create-eboot" >> $S
 fi
-make COMMONDIR=/workspace/oo/samples/_common
+make COMMONDIR=/workspace/oo/samples/_common || {
+  echo "@@ MAKE FAILED" >> $S
+  ls -la font/x64/Debug 2>&1 | sed 's/^/@@ obj: /' >> $S
+  echo "@@ int main count: $(grep -c 'int main' font/main.cpp)" >> $S
+  echo "@@ original kept: $(grep -c 'original_font_main' font/main.cpp)" >> $S
+  exit 1
+}
 GP4=$(find . -maxdepth 3 -name '*.gp4' | head -1)
 echo "@@ gp4: $GP4" >> $S
 [ -n "$GP4" ] || { echo "NO GP4 FOUND"; find . -maxdepth 3 | head -40; exit 1; }

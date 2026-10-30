@@ -26,7 +26,9 @@ jobs:
           grep -n 'GRAPHICS_USES_FONT\|^CFLAGS\|^LIBS' $D/Makefile || true
           DEF=""
           grep -q '^#define GRAPHICS_USES_FONT' "$M" && DEF="#define GRAPHICS_USES_FONT"
-          { echo "$DEF"; cat app/main_ui.cpp; } > "$M"
+          sed -i -E 's/\bint[[:space:]]+main[[:space:]]*\(/int original_font_main(/' "$M"
+          cat app/main_ui.cpp >> "$M"
+          grep -n 'int main\|original_font_main\|debugLogStream' "$M" | head
           echo "UI main installed: $(wc -l < "$M") lines"
 
       - name: Provide font
@@ -56,7 +58,7 @@ jobs:
             echo "################ FINAL RECAP"
             cat /tmp/recap.txt
             echo "################ COMPILER ERRORS"
-            grep -n 'error:\|undefined reference' /tmp/b.log | head -20
+            grep -n -A3 'error:\|undefined' /tmp/b.log | head -40
             exit 1
           fi
 
