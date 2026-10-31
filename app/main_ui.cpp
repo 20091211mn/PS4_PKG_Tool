@@ -246,7 +246,7 @@ int main() {
   sc = new Scene2D(FW, FH, 4);
   if (!sc->Init(0xC000000, 2)) {
     LOGF("video init failed");
-    delete sc;
+    // no delete: ~Scene2D is not defined in the sample
     sc = NULL;
   }
   render();
