@@ -22,9 +22,12 @@ try() {
   return 1
 }
 
-try pad "" "-lScePad -lSceUserService" || try nopad "#define PS4UI_NOPAD
+try full "" "-lScePad -lSceUserService" || try nogd "#define PS4UI_NOGD
+" "-lScePad -lSceUserService" || try nopad "#define PS4UI_NOPAD
+#define PS4UI_NOGD
 " "" || try nodir "#define PS4UI_NOPAD
 #define PS4UI_NODIR
+#define PS4UI_NOGD
 " "" || exit 1
 
 GP4=$(find . -maxdepth 3 -name '*.gp4' | head -1)

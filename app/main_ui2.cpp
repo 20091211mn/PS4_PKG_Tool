@@ -15,6 +15,11 @@
 #else
 #define USE_DIR 1
 #endif
+#ifdef PS4UI_NOGD
+#define USE_GD 0
+#else
+#define USE_GD 1
+#endif
 #if USE_PAD
 #include <orbis/UserService.h>
 #include <orbis/Pad.h>
@@ -60,6 +65,8 @@ static char curName[160] = "", sPart[64] = "", sSpeed[64] = "", sEta[64] = "", s
 static int sPct = 0, sOK = 1;
 static long long gTotal = 1, gDone = 0, gLastB = 0;
 static time_t gLastT = 0;
+static int dbgRaw = 0;
+static char dbgNote[120] = "";
 static int padH = -1;
 static uint32_t prevB = 0;
 
@@ -137,7 +144,7 @@ static void txt(const char* t, int x, int y, int size, Color fg, Color bg) {
 #ifdef GRAPHICS_USES_FONT
   if (haveFont) {
     FT_Face f = size >= 50 ? fBig : (size >= 34 ? fMid : fSm);
-    sc->DrawText((char*)t, f, x, y, bg, fg);
+    sc->DrawText((char*)t, f, x, y + size * 93 / 100, bg, fg);
     return;
   }
 #endif
@@ -170,6 +177,7 @@ static void drawList() {
   if (cnt == 0) {
     txt("No files found", 120, 300, 38, cGREY, cCARD);
     txt(tab == 0 ? "Put PKG files in /data/splitter" : "Put .part1 .part2 files there", 120, 370, 28, cGREY, cCARD);
+    txt(dbgNote, 120, 430, 28, cPURL, cCARD);
     return;
   }
   for (int r = 0; r < 9; r++) {
@@ -419,49 +427,99 @@ static void sortList() {
       }
 }
 
+static void addEntry(const char* n) {
+  if (cnt >= MAXF) return;
+  if (n[0] == '.' || strlen(n) > 150) return;
+  if (!strcmp(n, "log.txt") || !strcmp(n, "job.txt")) return;
+  char base[160];
+  int idx = 0;
+  bool isP = partInfo(n, base, sizeof(base), &idx);
+  char full[340];
+  if (tab == 0) {
+    if (isP) return;
+    snprintf(full, sizeof(full), "%s/%s", BASE, n);
+    long long s = fileSize(full);
+    if (s <= 0 || s > 20000000000000LL) return;
+    snprintf(names[cnt], sizeof(names[cnt]), "%s", n);
+    sizes[cnt] = s;
+    pcount[cnt] = 0;
+    cnt++;
+  } else {
+    if (!isP || idx != 1) return;
+    long long tot = 0;
+    int k = 0;
+    for (;;) {
+      snprintf(full, sizeof(full), "%s/%s.part%d", BASE, base, k + 1);
+      long long s = fileSize(full);
+      if (s < 0) break;
+      tot += s;
+      k++;
+    }
+    snprintf(names[cnt], sizeof(names[cnt]), "%s", base);
+    sizes[cnt] = tot;
+    pcount[cnt] = k;
+    cnt++;
+  }
+}
+
+#if USE_GD
+extern "C" int ui_kopen(const char*, int, int) __asm__("sceKernelOpen");
+extern "C" int ui_kclose(int) __asm__("sceKernelClose");
+extern "C" int ui_kgetdents(int, char*, int) __asm__("sceKernelGetdents");
+
+static int parseDirents(const char* buf, int n) {
+  int off = 0, found = 0;
+  while (off + 8 < n) {
+    unsigned short reclen = *(const unsigned short*)(buf + off + 4);
+    unsigned char namlen = *(const unsigned char*)(buf + off + 7);
+    const char* nm = buf + off + 8;
+    if (reclen < 8 || off + reclen > n) break;
+    if (namlen > 0 && namlen <= 150 && nm[namlen] == 0) {
+      found++;
+      addEntry(nm);
+    }
+    off += reclen;
+  }
+  return found;
+}
+
+static void gdScan() {
+  int fd = ui_kopen(BASE, 0, 0);
+  if (fd < 0) { snprintf(dbgNote, sizeof(dbgNote), "getdents: open failed (%d)", fd); return; }
+  static char gbuf[8192] __attribute__((aligned(8)));
+  int total = 0, n = 0, rounds = 0;
+  while ((n = ui_kgetdents(fd, gbuf, sizeof(gbuf))) > 0 && rounds < 64) {
+    total += parseDirents(gbuf, n);
+    rounds++;
+  }
+  ui_kclose(fd);
+  snprintf(dbgNote, sizeof(dbgNote), "getdents: entries=%d last=%d", total, n);
+}
+#endif
+
 static void scan() {
-  cnt = 0; sel = 0; scroll = 0;
+  cnt = 0; sel = 0; scroll = 0; dbgRaw = 0;
+  snprintf(dbgNote, sizeof(dbgNote), "scan: not run");
 #if USE_DIR
   DIR* d = opendir(BASE);
-  if (!d) { LOGF("opendir failed"); return; }
-  struct dirent* e;
-  while ((e = readdir(d)) != NULL && cnt < MAXF) {
-    const char* n = e->d_name;
-    if (n[0] == '.' || strlen(n) > 150) continue;
-    if (!strcmp(n, "log.txt") || !strcmp(n, "job.txt")) continue;
-    char base[160];
-    int idx = 0;
-    bool isP = partInfo(n, base, sizeof(base), &idx);
-    char full[340];
-    if (tab == 0) {
-      if (isP) continue;
-      snprintf(full, sizeof(full), "%s/%s", BASE, n);
-      long long s = fileSize(full);
-      if (s <= 0 || s > 20000000000000LL) continue;
-      snprintf(names[cnt], sizeof(names[cnt]), "%s", n);
-      sizes[cnt] = s;
-      pcount[cnt] = 0;
-      cnt++;
-    } else {
-      if (!isP || idx != 1) continue;
-      long long tot = 0;
-      int k = 0;
-      for (;;) {
-        snprintf(full, sizeof(full), "%s/%s.part%d", BASE, base, k + 1);
-        long long s = fileSize(full);
-        if (s < 0) break;
-        tot += s;
-        k++;
-      }
-      snprintf(names[cnt], sizeof(names[cnt]), "%s", base);
-      sizes[cnt] = tot;
-      pcount[cnt] = k;
-      cnt++;
+  if (!d) {
+    snprintf(dbgNote, sizeof(dbgNote), "opendir failed");
+    LOGF("opendir failed");
+  } else {
+    struct dirent* e;
+    while ((e = readdir(d)) != NULL) {
+      dbgRaw++;
+      addEntry(e->d_name);
     }
+    closedir(d);
+    snprintf(dbgNote, sizeof(dbgNote), "opendir ok: entries=%d shown=%d", dbgRaw, cnt);
   }
-  closedir(d);
-  sortList();
 #endif
+#if USE_GD
+  if (cnt == 0) gdScan();
+#endif
+  sortList();
+  LOGF(dbgNote);
 }
 
 static void onSelect() {
