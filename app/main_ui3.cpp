@@ -28,6 +28,11 @@
 #if USE_DIR
 #include <dirent.h>
 #endif
+#ifdef PS4UI_NOROOT
+#define USE_ROOT 0
+#else
+#define USE_ROOT 1
+#endif
 //PRE_END
 
 #if USE_FT && defined(GRAPHICS_USES_FONT)
@@ -309,6 +314,8 @@ static int parts = 2, minParts = 2, workKind = 0;
 static int padOk = 0, padH = -1;
 static uint32_t prevB = 0;
 static char dbgNote[160] = "", padMsg[160] = "";
+static char rootMsg[200] = "";
+static int rootOk = 0;
 static PkgInfo selPkg;
 static bool selPkgOk = false;
 static char curName[200] = "", sPart[96] = "", sSpeed[64] = "", sEta[64] = "", sMsg[240] = "";
@@ -494,20 +501,21 @@ static void barDraw(int x, int y, int w, int h, int pct, Color fill) {
 
 // ---------------------------------------------------------------- screens
 static void drawHeader() {
-  rect(0, 0, FW, 120, cHDR);
-  rect(0, 116, FW, 4, cPUR);
-  txt("PKG Tool Pro", 70, 26, 56, cWHITE, cHDR);
-  txt(S("أداة حزم PS4", "PS4 package tool"), 1000, 40, 38, cPURL, cHDR, 850, 1);
+  rect(0, 0, FW, 110, cHDR);
+  rect(0, 106, FW, 4, cPUR);
+  txt("PKG Tool Pro", 30, 22, 50, cWHITE, cHDR);
+  txt(S("أداة حزم PS4", "PS4 package tool"), 900, 34, 32, cPURL, cHDR, 1030, 1);
+  txt(rootMsg, 900, 74, 22, rootOk ? cGREEN : cRED, cHDR, 1030, 1);
 }
 
 static void drawPathBar() {
-  rect(70, 132, 1780, 56, cCARD);
+  rect(30, 122, 1860, 50, cCARD);
   char p[96];
-  fitPx(p, sizeof(p), curPath, 1300, 28);
-  txt(p, 90, 144, 28, cWHITE, cCARD);
+  fitPx(p, sizeof(p), curPath, 1380, 26);
+  txt(p, 46, 134, 26, cWHITE, cCARD);
   char c[64];
   snprintf(c, sizeof(c), S("%d عنصر", "%d items"), cnt > 0 && ents[0].kind == 0 ? cnt - 1 : cnt);
-  txt(c, 1400, 144, 28, cGREY, cCARD, 430, 1);
+  txt(c, 1460, 134, 26, cGREY, cCARD, 410, 1);
 }
 
 static void kindText(const Ent& e, char* o, size_t n) {
@@ -517,51 +525,51 @@ static void kindText(const Ent& e, char* o, size_t n) {
 }
 
 static void drawList() {
-  rect(70, 205, 1000, 745, cCARD);
+  rect(30, 192, 1060, 770, cCARD);
   if (cnt == 0) {
-    txt(S("لا توجد ملفات", "No files"), 100, 250, 38, cGREY, cCARD);
-    txt(S("ضع ملفات PKG في هذا المجلد", "Put PKG files in this folder"), 100, 320, 28, cGREY, cCARD);
-    txt(dbgNote, 100, 380, 28, cPURL, cCARD);
+    txt(S("لا توجد ملفات", "No files"), 60, 240, 38, cGREY, cCARD);
+    txt(S("ضع ملفات PKG في هذا المجلد", "Put PKG files in this folder"), 60, 310, 28, cGREY, cCARD);
+    txt(dbgNote, 60, 370, 26, cPURL, cCARD, 940);
     return;
   }
   for (int r = 0; r < 9; r++) {
     int i = scroll + r;
     if (i >= cnt) break;
-    int y = 215 + r * 80;
+    int y = 202 + r * 82;
     bool s = (i == sel);
     Color bg = s ? cSEL : cCARD;
-    rect(80, y, 980, 72, bg);
+    rect(40, y, 1040, 74, bg);
     Color ic = ents[i].kind <= 1 ? cPUR : (ents[i].kind == 4 ? cGREEN : cBLUE);
-    rect(80, y, 10, 72, s ? cPURL : ic);
+    rect(40, y, 10, 74, s ? cPURL : ic);
     char nm[200];
     if (ents[i].kind == 0) snprintf(nm, sizeof(nm), "..");
-    else fitPx(nm, sizeof(nm), ents[i].name, 640, 34);
-    txt(nm, 112, y + 16, 34, s ? cWHITE : cGREY, bg);
+    else fitPx(nm, sizeof(nm), ents[i].name, 680, 34);
+    txt(nm, 72, y + 18, 34, s ? cWHITE : cGREY, bg);
     char z[40];
     kindText(ents[i], z, sizeof(z));
-    txt(z, 790, y + 22, 28, cPURL, bg, 250, 1);
+    txt(z, 760, y + 24, 28, cPURL, bg, 290, 1);
   }
   if (cnt > 9) {
-    int bh = 745 * 9 / cnt;
+    int bh = 770 * 9 / cnt;
     if (bh < 30) bh = 30;
-    int by = 205 + (745 - bh) * scroll / (cnt - 9);
-    rect(1060, by, 6, bh, cBAR);
+    int by = 192 + (770 - bh) * scroll / (cnt - 9);
+    rect(1082, by, 6, bh, cBAR);
   }
 }
 
 static void drawPkgLines(int y) {
   if (!selPkgOk) {
-    txt(S("ليس ملف PKG للـ PS4", "Not a PS4 PKG"), 1130, y, 28, cGREY, cCARD, 700, 1);
+    txt(S("ليس ملف PKG للـ PS4", "Not a PS4 PKG"), 1150, y, 28, cGREY, cCARD, 740, 1);
     return;
   }
-  txt(S("ملف PKG صالح", "Valid PS4 PKG"), 1130, y, 28, cGREEN, cCARD, 700, 1);
+  txt(S("ملف PKG صالح", "Valid PS4 PKG"), 1150, y, 28, cGREEN, cCARD, 740, 1);
   char l[120];
   snprintf(l, sizeof(l), "Content ID: %s", selPkg.cid);
   char f[120];
-  fitPx(f, sizeof(f), l, 700, 28);
-  txt(f, 1130, y + 40, 28, cWHITE, cCARD, 700, 1);
+  fitPx(f, sizeof(f), l, 740, 28);
+  txt(f, 1150, y + 40, 28, cWHITE, cCARD, 740, 1);
   snprintf(l, sizeof(l), "Title ID: %s    %s    0x%X", selPkg.tid, selPkg.reg, selPkg.ctype);
-  txt(l, 1130, y + 80, 28, cGREY, cCARD, 700, 1);
+  txt(l, 1150, y + 80, 28, cGREY, cCARD, 740, 1);
 }
 
 static void drawBrowse() {
@@ -569,96 +577,96 @@ static void drawBrowse() {
   const Ent& e = ents[sel];
   char nm[200], z[48], l[160];
   if (e.kind == 0) {
-    txt(S("الرجوع", "Back"), 1130, 240, 28, cGREY, cCARD, 700, 1);
-    txt(S("المجلد الأعلى", "Parent folder"), 1130, 290, 38, cWHITE, cCARD, 700, 1);
-    txt(S("اضغط X للعودة", "Press X to go back"), 1130, 400, 28, cPURL, cCARD, 700, 1);
+    txt(S("الرجوع", "Back"), 1150, 240, 28, cGREY, cCARD, 740, 1);
+    txt(S("المجلد الأعلى", "Parent folder"), 1150, 290, 38, cWHITE, cCARD, 740, 1);
+    txt(S("اضغط X للعودة", "Press X to go back"), 1150, 400, 28, cPURL, cCARD, 740, 1);
     return;
   }
-  fitPx(nm, sizeof(nm), e.name, 700, 38);
+  fitPx(nm, sizeof(nm), e.name, 740, 38);
   if (e.kind == 1) {
-    txt(S("مجلد", "Folder"), 1130, 240, 28, cGREY, cCARD, 700, 1);
-    txt(nm, 1130, 290, 38, cWHITE, cCARD, 700, 1);
-    txt(S("اضغط X للدخول", "Press X to open"), 1130, 400, 28, cPURL, cCARD, 700, 1);
+    txt(S("مجلد", "Folder"), 1150, 240, 28, cGREY, cCARD, 740, 1);
+    txt(nm, 1150, 290, 38, cWHITE, cCARD, 740, 1);
+    txt(S("اضغط X للدخول", "Press X to open"), 1150, 400, 28, cPURL, cCARD, 740, 1);
     return;
   }
-  if (e.kind == 2) txt(S("ملف", "File"), 1130, 240, 28, cGREY, cCARD, 700, 1);
-  else txt(S("جزء من ملف مقسوم", "Part of a split file"), 1130, 240, 28, cGREY, cCARD, 700, 1);
-  txt(nm, 1130, 290, 38, cWHITE, cCARD, 700, 1);
+  if (e.kind == 2) txt(S("ملف", "File"), 1150, 240, 28, cGREY, cCARD, 740, 1);
+  else txt(S("جزء من ملف مقسوم", "Part of a split file"), 1150, 240, 28, cGREY, cCARD, 740, 1);
+  txt(nm, 1150, 290, 38, cWHITE, cCARD, 740, 1);
   if (e.kind == 2) {
     fmtSize(z, sizeof(z), e.size);
-    txt(z, 1130, 350, 38, cPURL, cCARD, 700, 1);
+    txt(z, 1150, 350, 38, cPURL, cCARD, 740, 1);
     drawPkgLines(420);
-    txt(S("عدد الأجزاء", "Parts"), 1130, 570, 28, cGREY, cCARD, 700, 1);
+    txt(S("عدد الأجزاء", "Parts"), 1150, 570, 28, cGREY, cCARD, 740, 1);
     snprintf(l, sizeof(l), "< %d >", parts);
-    txt(l, 1130, 610, 56, cWHITE, cCARD, 700, 1);
+    txt(l, 1150, 610, 56, cWHITE, cCARD, 740, 1);
     char e2[32];
     fmtSize(e2, sizeof(e2), (e.size + parts - 1) / parts);
     snprintf(l, sizeof(l), S("حجم كل جزء تقريباً %s", "Each part about %s"), e2);
-    txt(l, 1130, 700, 28, cGREY, cCARD, 700, 1);
-    rect(1130, 810, 700, 80, cPUR);
-    txt(padOk ? S("اضغط X للتقسيم", "Press X to split") : S("لا يوجد ذراع", "No controller"), 1130, 830, 38, cWHITE, cPUR, 700, 2);
+    txt(l, 1150, 740, 28, cGREY, cCARD, 740, 1);
+    rect(1150, 810, 740, 80, cPUR);
+    txt(padOk ? S("اضغط X للتقسيم", "Press X to split") : S("لا يوجد ذراع", "No controller"), 1150, 830, 38, cWHITE, cPUR, 740, 2);
     return;
   }
   const Grp& g = grps[e.grp];
   snprintf(l, sizeof(l), S("هذا الجزء رقم %d من %d", "This is part %d of %d"), e.idx, g.last);
-  txt(l, 1130, 350, 34, cPURL, cCARD, 700, 1);
+  txt(l, 1150, 350, 34, cPURL, cCARD, 740, 1);
   fmtSize(z, sizeof(z), g.total);
   snprintf(l, sizeof(l), S("الحجم الكلي بعد الدمج: %s", "Size after merge: %s"), z);
-  txt(l, 1130, 410, 30, cWHITE, cCARD, 700, 1);
+  txt(l, 1150, 410, 30, cWHITE, cCARD, 740, 1);
   drawPkgLines(470);
   char o[200];
-  fitPx(o, sizeof(o), g.base, 700, 28);
+  fitPx(o, sizeof(o), g.base, 740, 28);
   snprintf(l, sizeof(l), S("الملف الناتج: %s", "Output: %s"), o);
-  txt(l, 1130, 640, 28, cGREY, cCARD, 700, 1);
+  txt(l, 1150, 640, 28, cGREY, cCARD, 740, 1);
   if (g.missing > 0) {
     snprintf(l, sizeof(l), S("جزء ناقص: رقم %d", "Missing part: %d"), g.missing);
-    txt(l, 1130, 700, 38, cRED, cCARD, 700, 1);
-    rect(1130, 810, 700, 80, cBAR);
-    txt(S("لا يمكن الدمج", "Cannot merge"), 1130, 830, 38, cGREY, cBAR, 700, 2);
+    txt(l, 1150, 740, 38, cRED, cCARD, 740, 1);
+    rect(1150, 810, 740, 80, cBAR);
+    txt(S("لا يمكن الدمج", "Cannot merge"), 1150, 830, 38, cGREY, cBAR, 740, 2);
   } else {
-    txt(S("كل الأجزاء موجودة", "All parts found"), 1130, 700, 38, cGREEN, cCARD, 700, 1);
-    rect(1130, 810, 700, 80, cPUR);
-    txt(padOk ? S("اضغط X لدمج كل الأجزاء", "Press X to merge all parts") : S("لا يوجد ذراع", "No controller"), 1130, 830, 34, cWHITE, cPUR, 700, 2);
+    txt(S("كل الأجزاء موجودة", "All parts found"), 1150, 740, 38, cGREEN, cCARD, 740, 1);
+    rect(1150, 810, 740, 80, cPUR);
+    txt(padOk ? S("اضغط X لدمج كل الأجزاء", "Press X to merge all parts") : S("لا يوجد ذراع", "No controller"), 1150, 830, 34, cWHITE, cPUR, 740, 2);
   }
 }
 
 static void drawUsb() {
-  txt(S("فحص USB", "USB scan"), 1130, 240, 38, cPURL, cCARD, 700, 1);
+  txt(S("فحص USB", "USB scan"), 1150, 240, 38, cPURL, cCARD, 740, 1);
   for (int i = 0; i < usbN && i < 12; i++) {
     char t[120];
-    fitPx(t, sizeof(t), usbLines[i], 700, 28);
-    txt(t, 1130, 310 + i * 48, 28, i < 2 ? cWHITE : cGREY, cCARD, 700, 1);
+    fitPx(t, sizeof(t), usbLines[i], 740, 28);
+    txt(t, 1150, 310 + i * 48, 28, i < 2 ? cWHITE : cGREY, cCARD, 740, 1);
   }
 }
 
 static void drawWork() {
-  txt(workKind == 0 ? S("جاري التقسيم", "Splitting") : S("جاري الدمج", "Merging"), 1130, 240, 38, cPURL, cCARD, 700, 1);
+  txt(workKind == 0 ? S("جاري التقسيم", "Splitting") : S("جاري الدمج", "Merging"), 1150, 240, 38, cPURL, cCARD, 740, 1);
   char t[200];
-  fitPx(t, sizeof(t), curName, 700, 34);
-  txt(t, 1130, 300, 34, cWHITE, cCARD, 700, 1);
-  txt(sPart, 1130, 360, 28, cGREY, cCARD, 700, 1);
-  barDraw(1130, 450, 700, 56, sPct, sOK ? cPUR : cRED);
+  fitPx(t, sizeof(t), curName, 740, 34);
+  txt(t, 1150, 300, 34, cWHITE, cCARD, 740, 1);
+  txt(sPart, 1150, 360, 28, cGREY, cCARD, 740, 1);
+  barDraw(1150, 450, 740, 56, sPct, sOK ? cPUR : cRED);
   char p[16];
   snprintf(p, sizeof(p), "%d%%", sPct);
-  txt(p, 1130, 530, 56, cWHITE, cCARD, 700, 1);
-  txt(sSpeed, 1130, 630, 28, cGREY, cCARD, 700, 1);
-  txt(sEta, 1130, 680, 28, cGREY, cCARD, 700, 1);
-  txt(sMsg, 1130, 750, 34, sOK ? (mode == 2 ? cGREEN : cWHITE) : cRED, cCARD, 700, 1);
+  txt(p, 1150, 530, 56, cWHITE, cCARD, 740, 1);
+  txt(sSpeed, 1150, 630, 28, cGREY, cCARD, 740, 1);
+  txt(sEta, 1150, 680, 28, cGREY, cCARD, 740, 1);
+  txt(sMsg, 1150, 750, 34, sOK ? (mode == 2 ? cGREEN : cWHITE) : cRED, cCARD, 740, 1);
   if (mode == 2) {
-    rect(1130, 840, 700, 70, cPUR);
-    txt(S("اضغط X للمتابعة", "Press X to continue"), 1130, 856, 34, cWHITE, cPUR, 700, 2);
+    rect(1150, 840, 740, 70, cPUR);
+    txt(S("اضغط X للمتابعة", "Press X to continue"), 1150, 856, 34, cWHITE, cPUR, 740, 2);
   }
 }
 
 static void drawFooter() {
-  rect(0, 990, FW, 90, cHDR);
+  rect(0, 972, FW, 108, cHDR);
   if (padOk) {
     txt(S("تنقل: ↑↓     عدد الأجزاء: ←→     تنفيذ: X     رجوع: O     الأماكن: L1 R1     تحديث: △     USB: □     خروج: Options",
           "Up/Down: browse    Left/Right: parts    X: run    O: back    L1/R1: places    Triangle: refresh    Square: USB    Options: exit"),
-        70, 1018, 28, cGREY, cHDR, 1780, 1);
+        30, 988, 27, cGREY, cHDR, 1860, 1);
   } else {
-    txt(S("الذراع غير متصل - أعيد المحاولة...", "Controller not found - retrying..."), 70, 1000, 28, cRED, cHDR, 1780, 1);
-    txt(padMsg, 70, 1040, 24, cGREY, cHDR, 1780, 1);
+    txt(S("الذراع غير متصل - أعيد المحاولة...", "Controller not found - retrying..."), 30, 980, 27, cRED, cHDR, 1860, 1);
+    txt(padMsg, 30, 1022, 22, cGREY, cHDR, 1860, 1);
   }
 }
 
@@ -668,7 +676,7 @@ static void render() {
   drawHeader();
   drawPathBar();
   drawList();
-  rect(1110, 205, 740, 745, cCARD);
+  rect(1110, 192, 780, 770, cCARD);
   if (showUsb) drawUsb(); else if (mode == 0) drawBrowse(); else drawWork();
   drawFooter();
   sc->SubmitFlip(frameID);
@@ -1084,6 +1092,34 @@ static int doMerge(const char* dir, int gi) {
   return 0;
 }
 
+
+// -------------------------------------------------------------- root probe
+// There is no public "become root" API from a normal PS4 homebrew app: the jailbreak/kernel
+// exploit that launched this app either already lifted the sandbox (so plain file I/O already
+// reaches the whole filesystem) or it did not, and no userland call here can change that.
+// So instead of guessing a syscall, this tries real file operations outside the app sandbox and
+// records the exact error for each, which is what actually tells us whether /user is reachable.
+static void rootProbe() {
+  rootOk = 0;
+  char line[200];
+  const char* probes[] = {"/user", "/mnt", "/system_data", "/data"};
+  int ok = 0, total = 0;
+  size_t off = 0;
+  rootMsg[0] = 0;
+  for (int i = 0; i < 4; i++) {
+    total++;
+    bool good = isDirPath(probes[i]);
+    if (good) ok++;
+    int w = snprintf(line, sizeof(line), "%s=%s ", probes[i], good ? "OK" : "NO");
+    if (off + w < sizeof(rootMsg) - 1) { memcpy(rootMsg + off, line, w); off += w; rootMsg[off] = 0; }
+  }
+  rootOk = (ok >= 3);
+  char tail[64];
+  snprintf(tail, sizeof(tail), S("(%d/%d متاح)", "(%d/%d reachable)"), ok, total);
+  if (off + strlen(tail) < sizeof(rootMsg)) strcat(rootMsg, tail);
+  LOGF(rootMsg);
+}
+
 // -------------------------------------------------------------- controller
 #if USE_PAD
 extern "C" int ui_usinit(const void*) __asm__("sceUserServiceInitialize");
@@ -1233,6 +1269,7 @@ int main() {
 #endif
   if (isDirPath("/data/splitter")) snprintf(curPath, sizeof(curPath), "/data/splitter");
   else snprintf(curPath, sizeof(curPath), "/data");
+  rootProbe();
   padTryOpen();
   scanDir();
   onSelect();
