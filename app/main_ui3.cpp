@@ -55,6 +55,7 @@
 #define B_TRI 0x1000u
 #define B_CIRCLE 0x2000u
 #define B_CROSS 0x4000u
+#define B_SQUARE 0x8000u
 
 // ---------------------------------------------------------------- UTF-8
 static unsigned u8next(const char** pp) {
@@ -258,6 +259,31 @@ static bool partInfo(const char* n, char* base, size_t bn, int* idx) {
   return true;
 }
 
+// name.partN  or  name.NNN (7z / HJSplit style). width = number of digits for the .NNN style.
+static bool partParse(const char* n, char* base, size_t bn, int* idx, int* style, int* width) {
+  if (partInfo(n, base, bn, idx)) { *style = 0; *width = 0; return true; }
+  int len = (int)strlen(n);
+  int i = len - 1;
+  while (i >= 0 && n[i] >= '0' && n[i] <= '9') i--;
+  int digits = len - 1 - i;
+  if (digits >= 1 && digits <= 4 && i >= 1 && n[i] == '.' && i < (int)bn) {
+    memcpy(base, n, i);
+    base[i] = 0;
+    *idx = atoi(n + i + 1);
+    *style = 1;
+    *width = digits;
+    return true;
+  }
+  return false;
+}
+
+// game.pkg -> game_merged.pkg
+static void altName(char* o, size_t n, const char* base) {
+  const char* dot = strrchr(base, '.');
+  if (dot && dot != base) snprintf(o, n, "%.*s_merged%s", (int)(dot - base), base, dot);
+  else snprintf(o, n, "%s_merged", base);
+}
+
 // ------------------------------------------------------------------ state
 static Scene2D* sc = NULL;
 static int frameID = 0;
@@ -267,8 +293,14 @@ static bool haveFont = false;
 static FT_Face fBig, fMid, fSm;
 #endif
 
-struct Ent { char name[160]; long long size; int kind; int parts; int missing; };
-// kind: 0 = parent folder, 1 = folder, 2 = file, 3 = set of .partN files
+struct Ent { char name[160]; long long size; int kind; int parts; int missing; int grp; int idx; };
+// kind: 0 = parent folder, 1 = folder, 2 = file, 4 = one part of a split file (the whole set is found automatically)
+struct Grp { char base[160]; int style, width, first, count, last, missing; long long total; };
+static Grp grps[64];
+static int ngrp = 0;
+static bool showUsb = false;
+static char usbLines[12][120];
+static int usbN = 0;
 static Ent ents[MAXF];
 static int cnt = 0, sel = 0, scroll = 0;
 static char curPath[300] = "/data";
@@ -480,7 +512,7 @@ static void drawPathBar() {
 
 static void kindText(const Ent& e, char* o, size_t n) {
   if (e.kind == 0 || e.kind == 1) snprintf(o, n, "%s", S("مجلد", "Folder"));
-  else if (e.kind == 3) snprintf(o, n, S("%d أجزاء", "%d parts"), e.parts);
+  else if (e.kind == 4) snprintf(o, n, S("جزء %d", "Part %d"), e.idx);
   else { fmtSize(o, n, e.size); }
 }
 
@@ -499,7 +531,7 @@ static void drawList() {
     bool s = (i == sel);
     Color bg = s ? cSEL : cCARD;
     rect(80, y, 980, 72, bg);
-    Color ic = ents[i].kind <= 1 ? cPUR : (ents[i].kind == 3 ? cGREEN : cBLUE);
+    Color ic = ents[i].kind <= 1 ? cPUR : (ents[i].kind == 4 ? cGREEN : cBLUE);
     rect(80, y, 10, 72, s ? cPURL : ic);
     char nm[200];
     if (ents[i].kind == 0) snprintf(nm, sizeof(nm), "..");
@@ -550,12 +582,12 @@ static void drawBrowse() {
     return;
   }
   if (e.kind == 2) txt(S("ملف", "File"), 1130, 240, 28, cGREY, cCARD, 700, 1);
-  else txt(S("أجزاء ملف", "File parts"), 1130, 240, 28, cGREY, cCARD, 700, 1);
+  else txt(S("جزء من ملف مقسوم", "Part of a split file"), 1130, 240, 28, cGREY, cCARD, 700, 1);
   txt(nm, 1130, 290, 38, cWHITE, cCARD, 700, 1);
-  fmtSize(z, sizeof(z), e.size);
-  txt(z, 1130, 350, 38, cPURL, cCARD, 700, 1);
-  drawPkgLines(420);
   if (e.kind == 2) {
+    fmtSize(z, sizeof(z), e.size);
+    txt(z, 1130, 350, 38, cPURL, cCARD, 700, 1);
+    drawPkgLines(420);
     txt(S("عدد الأجزاء", "Parts"), 1130, 570, 28, cGREY, cCARD, 700, 1);
     snprintf(l, sizeof(l), "< %d >", parts);
     txt(l, 1130, 610, 56, cWHITE, cCARD, 700, 1);
@@ -565,19 +597,37 @@ static void drawBrowse() {
     txt(l, 1130, 700, 28, cGREY, cCARD, 700, 1);
     rect(1130, 810, 700, 80, cPUR);
     txt(padOk ? S("اضغط X للتقسيم", "Press X to split") : S("لا يوجد ذراع", "No controller"), 1130, 830, 38, cWHITE, cPUR, 700, 2);
+    return;
+  }
+  const Grp& g = grps[e.grp];
+  snprintf(l, sizeof(l), S("هذا الجزء رقم %d من %d", "This is part %d of %d"), e.idx, g.last);
+  txt(l, 1130, 350, 34, cPURL, cCARD, 700, 1);
+  fmtSize(z, sizeof(z), g.total);
+  snprintf(l, sizeof(l), S("الحجم الكلي بعد الدمج: %s", "Size after merge: %s"), z);
+  txt(l, 1130, 410, 30, cWHITE, cCARD, 700, 1);
+  drawPkgLines(470);
+  char o[200];
+  fitPx(o, sizeof(o), g.base, 700, 28);
+  snprintf(l, sizeof(l), S("الملف الناتج: %s", "Output: %s"), o);
+  txt(l, 1130, 640, 28, cGREY, cCARD, 700, 1);
+  if (g.missing > 0) {
+    snprintf(l, sizeof(l), S("جزء ناقص: رقم %d", "Missing part: %d"), g.missing);
+    txt(l, 1130, 700, 38, cRED, cCARD, 700, 1);
+    rect(1130, 810, 700, 80, cBAR);
+    txt(S("لا يمكن الدمج", "Cannot merge"), 1130, 830, 38, cGREY, cBAR, 700, 2);
   } else {
-    snprintf(l, sizeof(l), S("عدد الأجزاء: %d", "Parts: %d"), e.parts);
-    txt(l, 1130, 570, 38, cWHITE, cCARD, 700, 1);
-    if (e.missing > 0) {
-      snprintf(l, sizeof(l), S("جزء ناقص: رقم %d", "Missing part: %d"), e.missing);
-      txt(l, 1130, 640, 38, cRED, cCARD, 700, 1);
-      rect(1130, 810, 700, 80, cBAR);
-      txt(S("لا يمكن الدمج", "Cannot merge"), 1130, 830, 38, cGREY, cBAR, 700, 2);
-    } else {
-      txt(S("الأجزاء مكتملة", "All parts present"), 1130, 640, 38, cGREEN, cCARD, 700, 1);
-      rect(1130, 810, 700, 80, cPUR);
-      txt(padOk ? S("اضغط X للدمج", "Press X to merge") : S("لا يوجد ذراع", "No controller"), 1130, 830, 38, cWHITE, cPUR, 700, 2);
-    }
+    txt(S("كل الأجزاء موجودة", "All parts found"), 1130, 700, 38, cGREEN, cCARD, 700, 1);
+    rect(1130, 810, 700, 80, cPUR);
+    txt(padOk ? S("اضغط X لدمج كل الأجزاء", "Press X to merge all parts") : S("لا يوجد ذراع", "No controller"), 1130, 830, 34, cWHITE, cPUR, 700, 2);
+  }
+}
+
+static void drawUsb() {
+  txt(S("فحص USB", "USB scan"), 1130, 240, 38, cPURL, cCARD, 700, 1);
+  for (int i = 0; i < usbN && i < 12; i++) {
+    char t[120];
+    fitPx(t, sizeof(t), usbLines[i], 700, 28);
+    txt(t, 1130, 310 + i * 48, 28, i < 2 ? cWHITE : cGREY, cCARD, 700, 1);
   }
 }
 
@@ -603,8 +653,8 @@ static void drawWork() {
 static void drawFooter() {
   rect(0, 990, FW, 90, cHDR);
   if (padOk) {
-    txt(S("تنقل: ↑↓     عدد الأجزاء: ←→     تنفيذ: X     رجوع: O     الأماكن: L1 R1     تحديث: △     خروج: Options",
-          "Up/Down: browse    Left/Right: parts    X: run    O: back    L1/R1: places    Triangle: refresh    Options: exit"),
+    txt(S("تنقل: ↑↓     عدد الأجزاء: ←→     تنفيذ: X     رجوع: O     الأماكن: L1 R1     تحديث: △     USB: □     خروج: Options",
+          "Up/Down: browse    Left/Right: parts    X: run    O: back    L1/R1: places    Triangle: refresh    Square: USB    Options: exit"),
         70, 1018, 28, cGREY, cHDR, 1780, 1);
   } else {
     txt(S("الذراع غير متصل - أعيد المحاولة...", "Controller not found - retrying..."), 70, 1000, 28, cRED, cHDR, 1780, 1);
@@ -619,7 +669,7 @@ static void render() {
   drawPathBar();
   drawList();
   rect(1110, 205, 740, 745, cCARD);
-  if (mode == 0) drawBrowse(); else drawWork();
+  if (showUsb) drawUsb(); else if (mode == 0) drawBrowse(); else drawWork();
   drawFooter();
   sc->SubmitFlip(frameID);
   sc->FrameWait(frameID);
@@ -747,25 +797,70 @@ static bool hasEnt(const char* name, int kind) {
   return false;
 }
 
-// Looks at <base>.part1 .. .part99: how many are contiguous from 1, total size, first missing index.
-static void probeParts(const char* dir, const char* base, int* contiguous, long long* total, int* missing) {
-  char b[460], p[500];
+static void partName(char* o, size_t n, const char* dir, const char* base, int style, int width, int idx) {
+  char b[460];
   pathJoin(b, sizeof(b), dir, base);
-  *contiguous = 0; *total = 0; *missing = 0;
-  int highest = 0;
-  for (int i = 1; i <= 99; i++) {
-    snprintf(p, sizeof(p), "%s.part%d", b, i);
-    long long s = fileSize(p);
-    if (s < 0) { if (!*missing && *contiguous == i - 1) *missing = i; continue; }
-    *total += s;
-    highest = i;
-    if (*contiguous == i - 1) *contiguous = i;
+  if (style == 0) snprintf(o, n, "%s.part%d", b, idx);
+  else snprintf(o, n, "%s.%0*d", b, width, idx);
+}
+
+// Finds every part of the same split file (same base name and numbering style) and checks for gaps.
+static int findGroup(const char* dir, const char* base, int style, int width) {
+  for (int i = 0; i < ngrp; i++)
+    if (grps[i].style == style && grps[i].width == width && !strcmp(grps[i].base, base)) return i;
+  if (ngrp >= 64) return -1;
+  Grp& g = grps[ngrp];
+  memset(&g, 0, sizeof(g));
+  snprintf(g.base, sizeof(g.base), "%s", base);
+  g.style = style;
+  g.width = width;
+  g.first = 1;
+  char p[560];
+  if (style == 1 && width >= 2) {
+    partName(p, sizeof(p), dir, base, style, width, 0);
+    if (fileSize(p) >= 0) g.first = 0;
   }
-  if (highest == *contiguous) *missing = 0;
+  int found = 0, contiguous = 0, gap = 0, highest = g.first - 1;
+  for (int i = g.first; i < g.first + 99; i++) {
+    partName(p, sizeof(p), dir, base, style, width, i);
+    long long s = fileSize(p);
+    if (s < 0) { if (!gap && contiguous == i - g.first) gap = i; continue; }
+    found++;
+    g.total += s;
+    highest = i;
+    if (contiguous == i - g.first) contiguous++;
+  }
+  g.count = contiguous;
+  g.last = highest;
+  g.missing = (highest >= g.first + contiguous) ? gap : 0;
+  if (found == 0) g.missing = g.first;
+  g.last = highest - g.first + 1;
+  if (g.last < 1) g.last = 1;
+  g.count = found;
+  return ngrp++;
+}
+
+static const char* EX_ROOT[] = {"data", "user", "mnt", "system_data", "system", "app0", "hostapp", "preinst", "preinst2", "update", "usr", NULL};
+static const char* EX_MNT[] = {"usb0", "usb1", "usb2", "usb3", "usb4", "usb5", "usb6", "usb7", "ext0", "ext1", "hdd0", "sandbox", NULL};
+static const char* EX_USER[] = {"home", "data", "system", "av_contents", "download0", NULL};
+
+// Some folders are hidden from directory listings on the console; probe the well-known ones directly.
+static void addExtras(const char** names) {
+  for (int k = 0; names[k] && cnt < MAXF; k++) {
+    if (hasEnt(names[k], 1)) continue;
+    char full[460];
+    pathJoin(full, sizeof(full), curPath, names[k]);
+    if (!isDirPath(full)) continue;
+    Ent& e = ents[cnt];
+    memset(&e, 0, sizeof(e));
+    snprintf(e.name, sizeof(e.name), "%s", names[k]);
+    e.kind = 1;
+    cnt++;
+  }
 }
 
 static void scanDir() {
-  cnt = 0; sel = 0; scroll = 0;
+  cnt = 0; sel = 0; scroll = 0; ngrp = 0;
   if (strcmp(curPath, "/") != 0) {
     memset(&ents[0], 0, sizeof(Ent));
     snprintf(ents[0].name, sizeof(ents[0].name), "..");
@@ -786,29 +881,26 @@ static void scanDir() {
       cnt++;
       continue;
     }
-    char base[160];
-    int idx = 0;
-    if (partInfo(nm, base, sizeof(base), &idx)) {
-      if (hasEnt(base, 3)) continue;
-      int contig = 0, miss = 0;
-      long long tot = 0;
-      probeParts(curPath, base, &contig, &tot, &miss);
-      snprintf(e.name, sizeof(e.name), "%s", base);
-      e.kind = 3;
-      e.size = tot;
-      e.parts = contig;
-      e.missing = miss;
-      if (contig == 0 && miss == 0) e.missing = 1;
-      cnt++;
-      continue;
-    }
     long long s = fileSize(full);
     if (s < 0 || s > 20000000000000LL) continue;
     snprintf(e.name, sizeof(e.name), "%s", nm);
-    e.kind = 2;
     e.size = s;
+    e.kind = 2;
+    char base[160];
+    int idx = 0, style = 0, width = 0;
+    if (partParse(nm, base, sizeof(base), &idx, &style, &width)) {
+      int g = findGroup(curPath, base, style, width);
+      if (g >= 0 && (style == 0 || grps[g].count >= 2)) {
+        e.kind = 4;
+        e.grp = g;
+        e.idx = idx;
+      }
+    }
     cnt++;
   }
+  if (!strcmp(curPath, "/")) addExtras(EX_ROOT);
+  else if (!strcmp(curPath, "/mnt")) addExtras(EX_MNT);
+  else if (!strcmp(curPath, "/user")) addExtras(EX_USER);
   sortEnts();
   char m[520];
   snprintf(m, sizeof(m), "scan %s: %d entries (%s)", curPath, cnt, dbgNote);
@@ -819,20 +911,19 @@ static void onSelect() {
   selPkgOk = false;
   if (cnt == 0) return;
   const Ent& e = ents[sel];
-  char full[500];
-  if (e.kind == 2 || e.kind == 3) {
-    char b[460];
-    pathJoin(b, sizeof(b), curPath, e.name);
-    if (e.kind == 3) snprintf(full, sizeof(full), "%s.part1", b);
-    else snprintf(full, sizeof(full), "%s", b);
-    selPkgOk = readPkgInfo(full, &selPkg);
-  }
+  char full[560];
   if (e.kind == 2) {
+    pathJoin(full, sizeof(full), curPath, e.name);
+    selPkgOk = readPkgInfo(full, &selPkg);
     int need = (int)((e.size + 3999999999LL) / 4000000000LL);
     if (need < 2) need = 2;
     minParts = need;
     if (parts < need) parts = need;
     if (parts > need + 8) parts = need;
+  } else if (e.kind == 4) {
+    const Grp& g = grps[e.grp];
+    partName(full, sizeof(full), curPath, g.base, g.style, g.width, g.first);
+    selPkgOk = readPkgInfo(full, &selPkg);
   }
 }
 
@@ -857,9 +948,32 @@ static void progress(long long add) {
   if (upd) render();
 }
 
+static size_t gBufSz = BUFSZ;
+
+static char* allocBuf() {
+  size_t sizes[4] = {32u << 20, 16u << 20, 8u << 20, 4u << 20};
+  for (int i = 0; i < 4; i++) {
+    char* b = (char*)malloc(sizes[i]);
+    if (b) { gBufSz = sizes[i]; return b; }
+  }
+  return NULL;
+}
+
+static FILE* openRead(const char* p) {
+  FILE* f = fopen(p, "rb");
+  if (f) setvbuf(f, NULL, _IONBF, 0);
+  return f;
+}
+
+static FILE* openWrite(const char* p) {
+  FILE* f = fopen(p, "wb");
+  if (f) setvbuf(f, NULL, _IONBF, 0);
+  return f;
+}
+
 static int copyn(FILE* s, FILE* d, long long len, char* buf) {
   while (len > 0) {
-    size_t want = len < BUFSZ ? (size_t)len : BUFSZ;
+    size_t want = len < (long long)gBufSz ? (size_t)len : gBufSz;
     size_t g = fread(buf, 1, want, s);
     if (g == 0) return -1;
     if (fwrite(buf, 1, g, d) != g) return -2;
@@ -880,7 +994,7 @@ static int doSplit(const char* in, const char* shown, int n) {
   resetWork(shown, 0);
   snprintf(out, sizeof(out), "%s.part1", in);
   if (fileSize(out) >= 0) { fail(S("الأجزاء موجودة مسبقاً - احذفها أولاً", "Parts already exist - delete them first")); return -1; }
-  FILE* f = fopen(in, "rb");
+  FILE* f = openRead(in);
   if (!f) { fail(S("تعذر فتح الملف", "Cannot open input file")); return -1; }
   fseeko(f, 0, SEEK_END);
   long long size = ftello(f);
@@ -888,7 +1002,7 @@ static int doSplit(const char* in, const char* shown, int n) {
   if (n < 2 || n > size) { fail(S("عدد الأجزاء غير صالح", "Bad parts count")); fclose(f); return -1; }
   long long ps = (size + n - 1) / n;
   if (ps >= MAXPART) { fail(S("الجزء أكبر من 4GB - زد عدد الأجزاء", "Part over 4GB - use more parts")); fclose(f); return -1; }
-  char* buf = (char*)malloc(BUFSZ);
+  char* buf = allocBuf();
   if (!buf) { fail(S("الذاكرة غير كافية", "Out of memory")); fclose(f); return -1; }
   gTotal = size > 0 ? size : 1; gDone = 0; gLastB = 0; gLastT = time(NULL);
   render();
@@ -898,7 +1012,7 @@ static int doSplit(const char* in, const char* shown, int n) {
     if (len <= 0) break;
     snprintf(sPart, sizeof(sPart), S("الجزء %d من %d", "Part %d of %d"), i, n);
     snprintf(out, sizeof(out), "%s.part%d", in, i);
-    FILE* o = fopen(out, "wb");
+    FILE* o = openWrite(out);
     if (!o) { fail(S("تعذر كتابة الجزء", "Cannot write part")); free(buf); fclose(f); return -2; }
     int r = copyn(f, o, len, buf);
     fclose(o);
@@ -918,31 +1032,39 @@ static int doSplit(const char* in, const char* shown, int n) {
   return 0;
 }
 
-static int doMerge(const char* in, const char* dir, const char* base) {
-  char pn[560];
-  resetWork(base, 1);
-  int cn = 0, miss = 0;
-  long long total = 0;
-  probeParts(dir, base, &cn, &total, &miss);
-  if (cn == 0) { fail(S("لا توجد أجزاء", "No parts found")); return -1; }
-  if (miss > 0) {
+static int doMerge(const char* dir, int gi) {
+  char pn[560], outp[560];
+  const Grp& g = grps[gi];
+  resetWork(g.base, 1);
+  if (g.missing > 0) {
     char m[120];
-    snprintf(m, sizeof(m), S("جزء ناقص: رقم %d", "Missing part: %d"), miss);
+    snprintf(m, sizeof(m), S("جزء ناقص: رقم %d", "Missing part: %d"), g.missing);
     fail(m);
     return -1;
   }
-  if (fileSize(in) >= 0) { fail(S("الملف الناتج موجود - احذفه أو غيّر اسمه", "Output file exists - delete or rename it")); return -2; }
-  FILE* o = fopen(in, "wb");
+  int cn = g.count;
+  long long total = g.total;
+  pathJoin(outp, sizeof(outp), dir, g.base);
+  if (fileSize(outp) >= 0) {
+    if (fileSize(outp) == total) { fail(S("الملف المدموج موجود مسبقاً", "Already merged - output exists")); return -2; }
+    char alt[200];
+    altName(alt, sizeof(alt), g.base);
+    pathJoin(outp, sizeof(outp), dir, alt);
+    if (fileSize(outp) >= 0) { fail(S("الملف الناتج موجود - احذفه أو غيّر اسمه", "Output file exists - delete or rename it")); return -2; }
+  }
+  FILE* o = openWrite(outp);
   if (!o) { fail(S("تعذر كتابة الملف الناتج", "Cannot write output")); return -2; }
-  char* buf = (char*)malloc(BUFSZ);
+  char* buf = allocBuf();
   if (!buf) { fail(S("الذاكرة غير كافية", "Out of memory")); fclose(o); return -2; }
   gTotal = total > 0 ? total : 1; gDone = 0; gLastB = 0; gLastT = time(NULL);
   render();
-  for (int i = 1; i <= cn; i++) {
-    snprintf(sPart, sizeof(sPart), S("الجزء %d من %d", "Part %d of %d"), i, cn);
-    snprintf(pn, sizeof(pn), "%s.part%d", in, i);
-    FILE* f = fopen(pn, "rb");
-    if (!f) { fail(S("جزء مفقود", "Missing part")); free(buf); fclose(o); return -3; }
+  int n = 0;
+  for (int i = g.first; i < g.first + 99 && n < cn; i++) {
+    partName(pn, sizeof(pn), dir, g.base, g.style, g.width, i);
+    FILE* f = openRead(pn);
+    if (!f) continue;
+    n++;
+    snprintf(sPart, sizeof(sPart), S("الجزء %d من %d", "Part %d of %d"), n, cn);
     fseeko(f, 0, SEEK_END);
     long long len = ftello(f);
     fseeko(f, 0, SEEK_SET);
@@ -952,10 +1074,10 @@ static int doMerge(const char* in, const char* dir, const char* base) {
   }
   free(buf);
   fclose(o);
-  if (fileSize(in) != total) { fail(S("حجم الملف النهائي غير صحيح", "Final size mismatch")); return -5; }
+  if (fileSize(outp) != total) { fail(S("حجم الملف النهائي غير صحيح", "Final size mismatch")); return -5; }
   sPct = 100;
   PkgInfo pi;
-  if (readPkgInfo(in, &pi)) snprintf(sMsg, sizeof(sMsg), S("تم الدمج - PKG صالح %s", "Done - valid PKG %s"), pi.tid);
+  if (readPkgInfo(outp, &pi)) snprintf(sMsg, sizeof(sMsg), S("تم الدمج - PKG صالح %s", "Done - valid PKG %s"), pi.tid);
   else snprintf(sMsg, sizeof(sMsg), S("تم الدمج - %d أجزاء", "Done - %d parts merged"), cn);
   LOGF(sMsg);
   render();
@@ -1016,8 +1138,8 @@ static uint32_t padPressed() {
 }
 
 // ---------------------------------------------------------------- navigation
-#define NROOT 7
-static const char* ROOTS[NROOT] = {"/data/splitter", "/data", "/mnt/usb0", "/mnt/usb1", "/data/pkg", "/user/data", "/"};
+#define NROOT 9
+static const char* ROOTS[NROOT] = {"/data/splitter", "/data", "/user", "/mnt/usb0", "/mnt/usb1", "/mnt/ext0", "/mnt", "/system_data", "/"};
 static int rootIdx = 0;
 
 static void goRoot(int dir) {
@@ -1045,6 +1167,30 @@ static void enterDir(const char* name) {
   snprintf(curPath, sizeof(curPath), "%s", n);
 }
 
+
+// Safe USB probe: only lists device nodes and USB mount points, it does not talk to any device.
+static void usbScan() {
+  usbN = 0;
+  int n = listNames("/dev", 400);
+  int found = 0;
+  for (int i = 0; i < n && usbN < 8; i++) {
+    const char* nm = tmpNames[i];
+    if (!strncmp(nm, "ugen", 4) || !strncmp(nm, "usb", 3) || !strncmp(nm, "umass", 5) || (nm[0] == 'd' && nm[1] == 'a' && nm[2] >= '0' && nm[2] <= '9')) {
+      snprintf(usbLines[usbN++], 120, "/dev/%s", nm);
+      found++;
+    }
+  }
+  for (int k = 0; k < 8 && usbN < 10; k++) {
+    char p[40];
+    snprintf(p, sizeof(p), "/mnt/usb%d", k);
+    if (isDirPath(p)) snprintf(usbLines[usbN++], 120, "%s", S("مشغل USB جاهز: ", "USB storage mounted: ")), strncat(usbLines[usbN - 1], p, 60);
+  }
+  if (n == 0) snprintf(usbLines[usbN++], 120, "%s", S("تعذر قراءة /dev من داخل التطبيق", "Cannot read /dev from the app"));
+  else if (found == 0) snprintf(usbLines[usbN++], 120, "%s", S("لا توجد أجهزة USB ظاهرة", "No USB devices visible"));
+  snprintf(usbLines[usbN++], 120, "%s", S("الـ PS4 يفهم فقط وحدات التخزين", "PS4 only mounts USB storage"));
+  snprintf(usbLines[usbN++], 120, "%s", S("الهواتف تستعمل MTP أو ADB", "Phones use MTP or ADB instead"));
+}
+
 // A job.txt in /data/splitter (3 lines: split|merge, file name, parts) still works without a controller.
 static bool runJobFile() {
   FILE* j = fopen("/data/splitter/job.txt", "r");
@@ -1058,9 +1204,15 @@ static bool runJobFile() {
   nm[strcspn(nm, "\r\n")] = 0;
   char full[320];
   snprintf(full, sizeof(full), "/data/splitter/%s", nm);
+  snprintf(curPath, sizeof(curPath), "/data/splitter");
   mode = 1;
   if (!strcmp(md, "split")) doSplit(full, nm, atoi(np));
-  else if (!strcmp(md, "merge")) doMerge(full, "/data/splitter", nm);
+  else if (!strcmp(md, "merge")) {
+    scanDir();
+    int gi = -1;
+    for (int i = 0; i < cnt; i++) if (ents[i].kind == 4 && !strcmp(grps[ents[i].grp].base, nm)) { gi = ents[i].grp; break; }
+    if (gi >= 0) doMerge(curPath, gi); else { resetWork(nm, 1); fail("job.txt: no parts found"); }
+  }
   else { resetWork(nm, 0); fail("job.txt: mode must be split or merge"); }
   mode = 2;
   return true;
@@ -1093,7 +1245,10 @@ int main() {
     if (!padOk && !jobTried) { jobTried = true; if (runJobFile()) dirty = true; }
     uint32_t p = padPressed();
     if (p & B_OPTIONS) break;
-    if (mode == 0) {
+    if (showUsb) {
+      if (p & (B_SQUARE | B_CIRCLE | B_CROSS)) { showUsb = false; dirty = true; }
+    } else if (mode == 0) {
+      if (p & B_SQUARE) { usbScan(); showUsb = true; dirty = true; }
       if (p & B_L1) { goRoot(-1); dirty = true; }
       if (p & B_R1) { goRoot(1); dirty = true; }
       if ((p & B_DOWN) && sel + 1 < cnt) { sel++; if (sel >= scroll + 9) scroll = sel - 8; onSelect(); dirty = true; }
@@ -1114,10 +1269,9 @@ int main() {
           mode = 1;
           doSplit(full, e.name, parts);
           mode = 2;
-        } else if (e.kind == 3 && e.missing == 0) {
-          pathJoin(full, sizeof(full), curPath, e.name);
+        } else if (e.kind == 4) {
           mode = 1;
-          doMerge(full, curPath, e.name);
+          doMerge(curPath, e.grp);
           mode = 2;
         }
         dirty = true;
