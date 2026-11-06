@@ -5,10 +5,14 @@ on:
   push:
     branches: [main]
     paths:
+      - 'ps4_v*.zip'
       - 'app/main_ui3.cpp'
       - 'ci/ps4_app_build.sh'
       - 'ci/make_ui_main.py'
       - '.github/workflows/build-ps4.yml'
+
+permissions:
+  contents: write
 
 jobs:
   build-ps4:
@@ -16,6 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Apply the newest update zip (if one was uploaded)
+        run: |
+          Z=$(ls ps4_v*.zip 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "$Z" ]; then
+            echo "Using update: $Z"
+            unzip -o -q "$Z" -x '.github/*' -d .
+          else
+            echo "No update zip - using the sources already in the repository"
+          fi
+          ls -la app ci
 
       - name: Get OpenOrbis samples (matching tag)
         run: |
@@ -26,9 +41,6 @@ jobs:
         run: |
           M=oo/samples/font/font/main.cpp
           [ -f "$M" ] || { echo "no main.cpp at $M"; find oo/samples/font -maxdepth 2 | head -30; exit 1; }
-          echo "---- original main (diagnostics)"
-          grep -n 'Sysmodule\|FT_Init\|ttf\|InitFont\|Scene2D(\|GRAPHICS_USES_FONT' "$M" | head -25 || true
-          grep -n 'Sysmodule\|FT_Init' oo/samples/_common/graphics.cpp | head -10 || true
           F=$(grep -o '"/app0/[^"]*\.ttf"' "$M" | head -1 || true)
           echo "FONT PATH: $F"
           { if [ -n "$F" ]; then echo "#define PS4UI_FONT $F"; fi; cat app/main_ui3.cpp; } > /tmp/ui_full.cpp
@@ -61,9 +73,25 @@ jobs:
             exit 1
           fi
 
-      - name: Upload PKG
-        uses: actions/upload-artifact@v4
+      - name: Collect PKG
+        run: |
+          mkdir -p out
+          P=$(find oo/samples/font -name '*.pkg' | head -1)
+          [ -n "$P" ] || { echo "no pkg produced"; exit 1; }
+          cp "$P" out/PS4-PKG-Tool.pkg
+          cp "$P" "out/PS4-PKG-Tool-b${{ github.run_number }}.pkg"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
         with:
           name: PS4-App-PKG
-          path: oo/samples/font/**/*.pkg
-          if-no-files-found: error
+          path: out/*.pkg
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ps4-latest
+          name: PS4 PKG Tool (latest build)
+          body: "Build #${{ github.run_number }}. Download PS4-PKG-Tool.pkg below."
+          files: |
+            out/PS4-PKG-Tool.pkg
+            out/PS4-PKG-Tool-b${{ github.run_number }}.pkg
