@@ -338,15 +338,11 @@ static const Color cBLUE = {80, 160, 255};
 
 static const char* S(const char* ar, const char* en) { return haveFont ? ar : en; }
 
-// Many TVs crop the outer few percent of the picture (overscan), and the previous build placed
-// text right at the screen edge, which is what cut it off. Everything below is drawn through a
-// single safe-area transform so the whole UI sits inside the centered 92% of the panel instead.
-static const double UI_SCALE = 0.92;
-static int UI_OFFX = (int)(FW * (1.0 - UI_SCALE) / 2.0 + 0.5);
-static int UI_OFFY = (int)(FH * (1.0 - UI_SCALE) / 2.0 + 0.5);
-static int tx(int x) { return UI_OFFX + (int)(x * UI_SCALE); }
-static int ty(int y) { return UI_OFFY + (int)(y * UI_SCALE); }
-static int tl(int v) { int r = (int)(v * UI_SCALE); return r > 0 ? r : 1; }
+// 40px safe margin on all sides keeps content away from TV overscan edges
+// without shrinking or floating anything.
+static inline int tx(int x) { return x < 40 ? 40 : (x > FW - 40 ? FW - 40 : x); }
+static inline int ty(int y) { return y < 36 ? 36 : (y > FH - 36 ? FH - 36 : y); }
+static inline int tl(int v) { return v; }
 
 
 // ------------------------------------------------- pixel font (fallback)
@@ -405,10 +401,9 @@ static void glyph(int x, int y, int s, char c, Color col) {
   if (c >= 'a' && c <= 'z') c -= 32;
   const char* p = c ? strchr(CH, c) : NULL;
   int i = p ? (int)(p - CH) : 42;
-  int bs = tl(s);
   for (int r = 0; r < 7; r++)
     for (int k = 0; k < 5; k++)
-      if (GL[i][r] & (1 << (4 - k))) sc->DrawRectangle(tx(x + k * s), ty(y + r * s), bs, bs, col);
+      if (GL[i][r] & (1 << (4 - k))) sc->DrawRectangle(x + k * s, y + r * s, s, s, col);
 }
 
 // ------------------------------------------------ text (FreeType + shaping)
@@ -439,7 +434,7 @@ static int gDraw(FT_Face f, unsigned c, int x, int base, int size, Color fg, Col
       c2.r = (uint8_t)(bg.r + ((int)fg.r - (int)bg.r) * a / 255);
       c2.g = (uint8_t)(bg.g + ((int)fg.g - (int)bg.g) * a / 255);
       c2.b = (uint8_t)(bg.b + ((int)fg.b - (int)bg.b) * a / 255);
-      sc->DrawPixel(tx(px), ty(py), c2);
+      sc->DrawPixel(px, py, c2);
     }
   }
   return adv;
@@ -503,7 +498,7 @@ static void fmtSize(char* o, size_t n, long long b) {
   else snprintf(o, n, "%.1f MB", (double)b / 1048576.0);
 }
 
-static void rect(int x, int y, int w, int h, Color c) { sc->DrawRectangle(tx(x), ty(y), tl(w), tl(h), c); }
+static void rect(int x, int y, int w, int h, Color c) { sc->DrawRectangle(tx(x), ty(y), w, h, c); }
 
 static void barDraw(int x, int y, int w, int h, int pct, Color fill) {
   rect(x, y, w, h, cBAR);
