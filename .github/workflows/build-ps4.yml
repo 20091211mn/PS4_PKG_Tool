@@ -1,4 +1,4 @@
-name: Build PS4 App
+name: Build PS4 App and Windows tool
 
 on:
   workflow_dispatch:
@@ -9,6 +9,8 @@ on:
       - 'app/main_ui3.cpp'
       - 'ci/ps4_app_build.sh'
       - 'ci/make_ui_main.py'
+      - 'ci/get_payload.py'
+      - 'pc/**'
       - '.github/workflows/build-ps4.yml'
 
 permissions:
@@ -95,3 +97,61 @@ jobs:
           files: |
             out/PS4-PKG-Tool.pkg
             out/PS4-PKG-Tool-b${{ github.run_number }}.pkg
+
+  build-windows:
+    name: Build Windows exe
+    runs-on: windows-latest
+    needs: build-ps4
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the newest update zip (if one was uploaded)
+        shell: bash
+        run: |
+          Z=$(ls ps4_v*.zip 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "$Z" ]; then
+            echo "Using update: $Z"
+            python -m zipfile -e "$Z" .
+          else
+            echo "No update zip - using the sources already in the repository"
+          fi
+          ls pc
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Unit tests
+        shell: bash
+        run: cd pc && python -m unittest -v test_core
+
+      - name: GUI smoke test (does not block the build)
+        shell: bash
+        continue-on-error: true
+        run: cd pc && python pkgtool_gui.py --selftest
+
+      - name: Get payload.bin for the direct (no RPI) method
+        shell: bash
+        continue-on-error: true
+        run: python ci/get_payload.py
+
+      - name: Build exe
+        shell: bash
+        run: |
+          pip install pyinstaller
+          cd pc
+          if [ -f payload.bin ]; then DATA='--add-data payload.bin;.'; echo "bundling payload.bin"; else DATA=''; echo "no payload.bin - direct method disabled in this build"; fi
+          pyinstaller --onefile --windowed --name PS4-PKG-Tool-PC $DATA pkgtool_gui.py
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PS4-PKG-Tool-PC
+          path: pc/dist/PS4-PKG-Tool-PC.exe
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ps4-latest
+          name: PS4 PKG Tool (latest build)
+          files: pc/dist/PS4-PKG-Tool-PC.exe
