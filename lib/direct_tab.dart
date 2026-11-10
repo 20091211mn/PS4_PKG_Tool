@@ -8,30 +8,114 @@ import 'package:file_picker/file_picker.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class PkgMeta {
-  final String contentId, type;
+  final String contentId, headerType, bgftType, title, category, source;
   final int size;
-  PkgMeta(this.contentId, this.type, this.size);
+  final Uint8List icon;
+  PkgMeta(this.contentId, this.headerType, this.bgftType, this.title, this.category, this.source, this.size, this.icon);
+}
+
+int _be32(Uint8List b, int o) => (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3];
+int _le32(Uint8List b, int o) => b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24);
+int _le16(Uint8List b, int o) => b[o] | (b[o + 1] << 8);
+
+// PARAM.SFO -> text values only (CATEGORY, TITLE, ...)
+Map<String, String> _parseSfo(Uint8List d) {
+  final out = <String, String>{};
+  if (d.length < 0x14 || d[0] != 0 || d[1] != 0x50 || d[2] != 0x53 || d[3] != 0x46) return out;
+  final keyTab = _le32(d, 8);
+  final dataTab = _le32(d, 12);
+  final n = _le32(d, 16);
+  for (var i = 0; i < n && i < 256; i++) {
+    final e = 0x14 + i * 16;
+    if (e + 16 > d.length) break;
+    final ko = _le16(d, e);
+    final fmt = _le16(d, e + 2);
+    final len = _le32(d, e + 4);
+    final dof = _le32(d, e + 12);
+    var t = keyTab + ko;
+    final s = t;
+    while (t < d.length && d[t] != 0) {
+      t++;
+    }
+    if (t >= d.length) continue;
+    final key = ascii.decode(d.sublist(s, t), allowInvalid: true);
+    final ds = dataTab + dof;
+    if (fmt == 0x0404 || ds + len > d.length) continue;
+    final raw = d.sublist(ds, ds + len);
+    var z = raw.indexOf(0);
+    if (z < 0) z = raw.length;
+    out[key] = utf8.decode(raw.sublist(0, z), allowMalformed: true);
+  }
+  return out;
 }
 
 Future<PkgMeta> readPkgMeta(File f) async {
   final raf = await f.open();
   try {
-    final h = await raf.read(0x80);
-    if (h.length < 0x80 || h[0] != 0x7f || h[1] != 0x43 || h[2] != 0x4e || h[3] != 0x54) {
+    final size = await f.length();
+    final h = await raf.read(0x100);
+    if (h.length < 0x100 || h[0] != 0x7f || h[1] != 0x43 || h[2] != 0x4e || h[3] != 0x54) {
       throw 'الملف مش PKG صالح (الهيدر غلط)';
     }
     final idBytes = <int>[];
     for (var i = 0x40; i < 0x64 && h[i] != 0; i++) {
       idBytes.add(h[i]);
     }
-    final ct = (h[0x74] << 24) | (h[0x75] << 16) | (h[0x76] << 8) | h[0x77];
-    var type = 'PS4GD';
-    if (ct == 0x1B) {
-      type = 'PS4AC';
-    } else if (ct == 0x1E) {
-      type = 'PS4GP';
+    final ct = _be32(h, 0x74);
+    final headerType = ct == 0x1B ? 'PS4AC' : (ct == 0x1E ? 'PS4GP' : 'PS4GD');
+    var type = headerType;
+    var title = '';
+    var cat = '';
+    var source = 'header';
+    var icon = Uint8List(0);
+    try {
+      final count = _be32(h, 0x10);
+      final table = _be32(h, 0x18);
+      if (count > 0 && count <= 4096 && table < size) {
+        await raf.setPosition(table);
+        final raw = await raf.read(count * 32);
+        var sfoOff = 0, sfoSz = 0, icoOff = 0, icoSz = 0;
+        for (var i = 0; i + 32 <= raw.length; i += 32) {
+          final id = _be32(raw, i);
+          final off = _be32(raw, i + 16);
+          final sz = _be32(raw, i + 20);
+          if (id == 0x1000 && sz > 0 && sz <= (1 << 20) && off + sz <= size) {
+            sfoOff = off;
+            sfoSz = sz;
+          } else if (id == 0x1200 && sz > 0 && sz <= (2 << 20) && off + sz <= size) {
+            icoOff = off;
+            icoSz = sz;
+          }
+        }
+        if (sfoSz > 0) {
+          await raf.setPosition(sfoOff);
+          final p = _parseSfo(await raf.read(sfoSz));
+          cat = (p['CATEGORY'] ?? '').trim().toLowerCase();
+          title = (p['TITLE'] ?? '').trim();
+          var k = '';
+          if (cat == 'gd') {
+            k = 'PS4GD';
+          } else if (cat == 'gp') {
+            k = 'PS4GP';
+          } else if (cat == 'ac') {
+            k = 'PS4AC';
+          } else if (cat.startsWith('gd')) {
+            k = 'PS4GD';
+          }
+          if (k.isNotEmpty) {
+            type = k;
+            source = 'PARAM.SFO';
+          }
+          if (icoSz > 0) {
+            await raf.setPosition(icoOff);
+            icon = await raf.read(icoSz);
+          }
+        }
+      }
+    } catch (_) {
+      // keep the header guess
     }
-    return PkgMeta(ascii.decode(idBytes, allowInvalid: true), type, await f.length());
+    return PkgMeta(ascii.decode(idBytes, allowInvalid: true), headerType, type, title, cat, source, size, icon);
   } finally {
     await raf.close();
   }
@@ -64,7 +148,7 @@ int findBytes(Uint8List b, List<int> pat) {
   return -1;
 }
 
-Uint8List buildInfo(String url, String name, String id, String type, int size) {
+Uint8List buildInfo(String url, String name, String id, String type, int size, Uint8List icon) {
   final b = BytesBuilder();
   void i32(int v) {
     final d = ByteData(4)..setInt32(0, v, Endian.little);
@@ -84,7 +168,8 @@ Uint8List buildInfo(String url, String name, String id, String type, int size) {
   str(type);
   final d8 = ByteData(8)..setInt64(0, size, Endian.little);
   b.add(d8.buffer.asUint8List());
-  i32(0);
+  i32(icon.length);
+  b.add(icon);
   return b.toBytes();
 }
 
@@ -93,6 +178,8 @@ class PkgServer {
   File? _file;
   int size = 0;
   int sent = 0;
+  int manifestHits = 0;
+  int pkgHits = 0;
   String _json = '';
   String phone = '';
 
@@ -101,6 +188,8 @@ class PkgServer {
     size = pkgSize;
     phone = phoneIp;
     sent = 0;
+    manifestHits = 0;
+    pkgHits = 0;
     _srv = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     final pkgUrl = 'http://$phoneIp:${_srv!.port}/pkg/app.pkg';
     _json = jsonEncode({
@@ -127,6 +216,7 @@ class PkgServer {
     try {
       final res = req.response;
       if (req.uri.path.startsWith('/json/')) {
+        if (req.method != 'HEAD') manifestHits++;
         final data = utf8.encode(_json);
         res.headers.contentType = ContentType('application', 'json');
         res.contentLength = data.length;
@@ -155,6 +245,7 @@ class PkgServer {
         await res.close();
         return;
       }
+      pkgHits++;
       final raf = await _file!.open();
       try {
         await raf.setPosition(start);
@@ -193,6 +284,8 @@ class _DirectTabState extends State<DirectTab> {
   ServerSocket? _ss;
   Timer? _t;
   int _lastSent = 0;
+  DateTime? _sentAt;
+  bool _w1 = false, _w2 = false, _started = false;
 
   void _add(String s) {
     if (mounted) setState(() => _log.add(s));
@@ -241,6 +334,7 @@ class _DirectTabState extends State<DirectTab> {
     _ss = null;
     await _server?.stop();
     _server = null;
+    _sentAt = null;
     await WakelockPlus.disable();
     if (!silent) _add('تم إيقاف السيرفر');
     if (mounted) setState(() => _serving = false);
@@ -254,12 +348,24 @@ class _DirectTabState extends State<DirectTab> {
       return;
     }
     await _stop(silent: true);
-    setState(() { _log.clear(); _busy = true; _p = 0; _speed = ''; });
+    setState(() {
+      _log.clear();
+      _busy = true;
+      _p = 0;
+      _speed = '';
+      _w1 = false;
+      _w2 = false;
+      _started = false;
+    });
     await WakelockPlus.enable();
     try {
       final meta = await readPkgMeta(f);
-      final type = _type == 'تلقائي' ? meta.type : _type;
-      _add('الحزمة: ${meta.contentId}   النوع: $type');
+      final auto = _type == 'تلقائي';
+      final type = auto ? meta.bgftType : _type;
+      final how = auto ? meta.source : 'يدوي';
+      final catTxt = meta.category.isEmpty ? '' : ' category=${meta.category}';
+      _add('الحزمة: ${meta.contentId}');
+      _add('النوع: $type ($how$catTxt)');
       final phone = await wifiIp();
       if (phone.isEmpty) throw 'التلفون مش على الواي فاي';
       _add('IP التلفون: $phone');
@@ -286,17 +392,37 @@ class _DirectTabState extends State<DirectTab> {
       await s.close();
       _add('استنى الـ payload يتصل بالتلفون...');
       final c = await accepted.future.timeout(const Duration(seconds: 25),
-          onTimeout: () => throw 'الـ payload ما رجّعش اتصال. جرّب تعيد التشغيل أو شغّل GoldHEN من جديد');
-      final name = f.path.split('/').last.replaceAll(RegExp(r'\.pkg$', caseSensitive: false), '');
-      c.add(buildInfo(url, name, meta.contentId, type, meta.size));
+          onTimeout: () => throw 'الـ payload ما رجّع اتصال. أطفئ BinLoader في GoldHEN وشغّله من جديد (أو أعد تشغيل الـ PS4) وجرّب');
+      final base = f.path.split(Platform.pathSeparator).last;
+      final fallbackName = base.replaceAll(RegExp(r'\.pkg$', caseSensitive: false), '');
+      final name = meta.title.isEmpty ? fallbackName : meta.title;
+      c.add(buildInfo(url, name, meta.contentId, type, meta.size, meta.icon));
       await c.flush();
       await c.close();
-      _add('تم إرسال بيانات الحزمة ✓');
-      _add('تابع من Notifications ← Downloads على الـ PS4، وخلي التطبيق مفتوح لين يخلص');
+      _add('تم إرسال بيانات الحزمة ✓ (هذا لا يعني أن التحميل بدأ)');
+      _add('انتظر رسالة: الـ PS4 بدأ التحميل. وخلي التطبيق مفتوح والشاشة شغالة');
+      _sentAt = DateTime.now();
       _lastSent = 0;
       _t = Timer.periodic(const Duration(seconds: 1), (_) {
         final sv = _server;
         if (sv == null) return;
+        final at = _sentAt;
+        if (at != null) {
+          final el = DateTime.now().difference(at).inSeconds;
+          if (sv.pkgHits > 0) {
+            if (!_started) {
+              _started = true;
+              _add('✓ الـ PS4 بدأ التحميل فعلاً');
+            }
+          } else if (sv.manifestHits == 0 && el > 30 && !_w1) {
+            _w1 = true;
+            _add('⚠ الـ PS4 ما طلب الملف. غالباً الـ payload خرج (إشعار DirectPackageInstaller Exited).');
+            _add('الحل: في GoldHEN أطفئ BinLoader ثم شغّله من جديد (أو أعد تشغيل الـ PS4) ثم اضغط إرسال.');
+          } else if (sv.manifestHits > 0 && el > 60 && !_w2) {
+            _w2 = true;
+            _add('⚠ الـ PS4 قرأ الوصف لكنه ما بدأ التحميل. تأكد من الشبكة (نفس الواي فاي) وجرّب نوع حزمة ثاني.');
+          }
+        }
         final d = sv.sent - _lastSent;
         _lastSent = sv.sent;
         if (mounted) {
@@ -335,14 +461,14 @@ class _DirectTabState extends State<DirectTab> {
         OutlinedButton.icon(
           onPressed: _busy ? null : _pick,
           icon: const Icon(Icons.attach_file),
-          label: Text(_file == null ? 'اختيار ملف PKG' : _file!.path.split('/').last, overflow: TextOverflow.ellipsis),
+          label: Text(_file == null ? 'اختيار ملف PKG' : _file!.path.split(Platform.pathSeparator).last, overflow: TextOverflow.ellipsis),
           style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           value: _type,
           decoration: const InputDecoration(labelText: 'نوع الحزمة', border: OutlineInputBorder()),
-          items: const ['تلقائي', 'PS4GD', 'PS4GP', 'PS4AC'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+          items: const ['تلقائي', 'PS4GD', 'PS4AC', 'PS4GP'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
           onChanged: (v) => setState(() => _type = v ?? 'تلقائي'),
         ),
         const SizedBox(height: 12),
