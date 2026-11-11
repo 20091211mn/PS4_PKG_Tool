@@ -55,7 +55,7 @@ class App:
         self.watch = None
         self.warn_after = (30, 60)
 
-        root.title(ar('أداة حزم PS4') + '  -  PS4 PKG Tool')
+        root.title(ar('أداة حزم PS4') + '  -  PS4 PKG Tool  (direct ' + core.DIRECT_VERSION + ')')
         root.geometry('800x620')
         root.minsize(720, 540)
         style = ttk.Style()

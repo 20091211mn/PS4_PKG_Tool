@@ -7,6 +7,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:file_picker/file_picker.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+const String kDirectVersion = 'v9';
+
 class PkgMeta {
   final String contentId, headerType, bgftType, title, category, source;
   final int size;
@@ -190,20 +192,41 @@ class PkgServer {
     sent = 0;
     manifestHits = 0;
     pkgHits = 0;
+    _json = '';
     _srv = await HttpServer.bind(InternetAddress.anyIPv4, 0);
-    final pkgUrl = 'http://$phoneIp:${_srv!.port}/pkg/app.pkg';
-    _json = jsonEncode({
-      'originalFileSize': pkgSize,
-      'packageDigest': '0' * 64,
-      'numberOfSplitFiles': 1,
-      'pieces': [
-        {'url': pkgUrl, 'fileOffset': 0, 'fileSize': pkgSize, 'hashValue': '0' * 40}
-      ],
-    });
     _srv!.listen(_handle, onError: (_) {});
   }
 
-  String manifestUrl() => 'http://$phone:${_srv!.port}/json/0.json';
+  // Same as DirectPackageInstaller: the file URL itself, and a JSON manifest of 4GB pieces only when the
+  // package is bigger than 4GB.
+  String directUrl(String fileName) {
+    final src = base64Url.encode(utf8.encode(fileName));
+    final port = _srv!.port;
+    const piece = 4294967296;
+    if (size <= piece) {
+      _json = '';
+      return 'http://$phone:$port/file?b64=$src';
+    }
+    final pieces = <Map<String, dynamic>>[];
+    var off = 0;
+    while (off < size) {
+      final sz = (size - off) < piece ? (size - off) : piece;
+      pieces.add({
+        'url': 'http://$phone:$port/split?b64=$src&offset=$off&size=$sz',
+        'fileOffset': off,
+        'fileSize': sz,
+        'hashValue': '0' * 40,
+      });
+      off += sz;
+    }
+    _json = jsonEncode({
+      'originalFileSize': size,
+      'packageDigest': '0' * 64,
+      'numberOfSplitFiles': pieces.length,
+      'pieces': pieces,
+    });
+    return 'http://$phone:$port/json/0.json';
+  }
 
   Future<void> stop() async {
     try {
@@ -215,7 +238,8 @@ class PkgServer {
   Future<void> _handle(HttpRequest req) async {
     try {
       final res = req.response;
-      if (req.uri.path.startsWith('/json/')) {
+      final path = req.uri.path;
+      if (path.startsWith('/json/') && _json.isNotEmpty) {
         if (req.method != 'HEAD') manifestHits++;
         final data = utf8.encode(_json);
         res.headers.contentType = ContentType('application', 'json');
@@ -224,8 +248,20 @@ class PkgServer {
         await res.close();
         return;
       }
-      int start = 0, end = size - 1;
-      res.headers.set('Accept-Ranges', 'bytes');
+      var base = 0;
+      var total = size;
+      if (path == '/split') {
+        base = int.tryParse(req.uri.queryParameters['offset'] ?? '') ?? -1;
+        total = int.tryParse(req.uri.queryParameters['size'] ?? '') ?? 0;
+        if (base < 0 || total <= 0 || base + total > size) {
+          res.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+          res.contentLength = 0;
+          await res.close();
+          return;
+        }
+      }
+      int start = 0, end = total - 1;
+      res.headers.set('Accept-Ranges', 'none');
       res.headers.contentType = ContentType.binary;
       res.headers.set('Content-Disposition', 'attachment; filename="app.pkg"');
       final rg = req.headers.value('range');
@@ -234,9 +270,9 @@ class PkgServer {
         if (m != null) {
           if (m.group(1)!.isNotEmpty) start = int.parse(m.group(1)!);
           if (m.group(2)!.isNotEmpty) end = int.parse(m.group(2)!);
-          if (end > size - 1) end = size - 1;
+          if (end > total - 1) end = total - 1;
           res.statusCode = HttpStatus.partialContent;
-          res.headers.set('Content-Range', 'bytes $start-$end/$size');
+          res.headers.set('Content-Range', 'bytes $start-$end/$total');
         }
       }
       res.bufferOutput = false;
@@ -248,7 +284,7 @@ class PkgServer {
       pkgHits++;
       final raf = await _file!.open();
       try {
-        await raf.setPosition(start);
+        await raf.setPosition(base + start);
         var left = end - start + 1;
         while (left > 0) {
           final c = await raf.read(left < 4194304 ? left : 4194304);
@@ -372,8 +408,9 @@ class _DirectTabState extends State<DirectTab> {
       final server = PkgServer();
       await server.start(f, phone, meta.size);
       _server = server;
-      final url = server.manifestUrl();
-      _add('سيرفر الملف شغال');
+      final fileName = f.path.split(Platform.pathSeparator).last;
+      final url = server.directUrl(fileName);
+      _add('سيرفر الملف شغال (الإصدار $kDirectVersion، ${url.contains('/file?') ? 'رابط الملف مباشرة' : 'جدول تقسيم لأن الحزمة أكبر من 4GB'})');
       final ss = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
       _ss = ss;
       final accepted = Completer<Socket>();
@@ -393,8 +430,7 @@ class _DirectTabState extends State<DirectTab> {
       _add('استنى الـ payload يتصل بالتلفون...');
       final c = await accepted.future.timeout(const Duration(seconds: 25),
           onTimeout: () => throw 'الـ payload ما رجّع اتصال. أطفئ BinLoader في GoldHEN وشغّله من جديد (أو أعد تشغيل الـ PS4) وجرّب');
-      final base = f.path.split(Platform.pathSeparator).last;
-      final fallbackName = base.replaceAll(RegExp(r'\.pkg$', caseSensitive: false), '');
+      final fallbackName = fileName.replaceAll(RegExp(r'\.pkg$', caseSensitive: false), '');
       final name = meta.title.isEmpty ? fallbackName : meta.title;
       c.add(buildInfo(url, name, meta.contentId, type, meta.size, meta.icon));
       await c.flush();
@@ -454,7 +490,7 @@ class _DirectTabState extends State<DirectTab> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ListView(padding: const EdgeInsets.all(20), children: [
-        const Align(alignment: Alignment.centerRight, child: Text('إرسال مباشر (Payload)', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
+        const Align(alignment: Alignment.centerRight, child: Text('إرسال مباشر (Payload) $kDirectVersion', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
         const SizedBox(height: 16),
         TextField(controller: _ip, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'IP الـ PS4', border: OutlineInputBorder())),
         const SizedBox(height: 12),

@@ -2,6 +2,7 @@
 
 Pure standard library. The GUI (pkgtool_gui.py) is a thin layer over this module.
 """
+import base64
 import http.server
 import json
 import os
@@ -12,10 +13,13 @@ import struct
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 
 BUF = 8 * 1024 * 1024
 MAXPART = 4294967295
+DIRECT_VERSION = 'v9'
+PIECE = 4294967296
 
 
 class PkgError(Exception):
@@ -290,7 +294,19 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         srv = self.server
         if getattr(srv, 'manifest', None) is not None and self.path.startswith('/json/'):
             return self._manifest(head)
-        size = srv.file_size
+        base, size = 0, srv.file_size
+        if self.path.startswith('/split'):                      # one piece of a package larger than 4GB
+            q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            try:
+                base = int(q.get('offset', ['0'])[0])
+                size = int(q.get('size', [str(srv.file_size - base)])[0])
+            except ValueError:
+                base, size = -1, 0
+            if base < 0 or size <= 0 or base + size > srv.file_size:
+                self.send_response(416)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return
         a, b, partial = self._range(size)
         if a > b or a >= size:
             self.send_response(416)
@@ -299,7 +315,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             return
         self.send_response(206 if partial else 200)
-        self.send_header('Accept-Ranges', 'bytes')
+        self.send_header('Accept-Ranges', getattr(srv, 'accept_ranges', 'bytes'))
         self.send_header('Content-Type', 'application/octet-stream')
         self.send_header('Content-Disposition', 'attachment; filename="%s"' % os.path.basename(srv.file_path))
         if partial:
@@ -313,7 +329,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             srv.first_pkg_time = time.time()
         try:
             with open(srv.file_path, 'rb') as f:
-                f.seek(a)
+                f.seek(base + a)
                 left = b - a + 1
                 while left > 0:
                     chunk = f.read(min(1024 * 1024, left))
@@ -338,8 +354,9 @@ class _Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 class FileServer:
-    def __init__(self, path, port=0):
+    def __init__(self, path, port=0, accept_ranges='bytes'):
         self.srv = _Server(('0.0.0.0', port), _Handler)
+        self.srv.accept_ranges = accept_ranges
         self.srv.file_path = path
         self.srv.file_size = os.path.getsize(path)
         self.srv.sent = 0
@@ -380,12 +397,20 @@ class FileServer:
         return 'http://%s:%d/%s' % (ip, self.port, urllib.request.pathname2url(os.path.basename(self.srv.file_path)))
 
     def enable_direct(self, ip):
-        """Serve the JSON manifest that the DirectPackageInstaller payload downloads first."""
-        pkg_url = 'http://%s:%d/pkg/app.pkg' % (ip, self.port)
+        """URL to give the payload. Like DirectPackageInstaller: the file URL itself, and a JSON manifest
+        of 4GB pieces only when the package is bigger than 4GB."""
         size = self.srv.file_size
-        self.srv.manifest = json.dumps({
-            'originalFileSize': size, 'packageDigest': '0' * 64, 'numberOfSplitFiles': 1,
-            'pieces': [{'url': pkg_url, 'fileOffset': 0, 'fileSize': size, 'hashValue': '0' * 40}]}).encode()
+        src = base64.urlsafe_b64encode(os.path.basename(self.srv.file_path).encode('utf-8')).decode('ascii')
+        if size <= PIECE:
+            return 'http://%s:%d/file?b64=%s' % (ip, self.port, src)
+        pieces, off = [], 0
+        while off < size:
+            sz = min(PIECE, size - off)
+            pieces.append({'url': 'http://%s:%d/split?b64=%s&offset=%d&size=%d' % (ip, self.port, src, off, sz),
+                           'fileOffset': off, 'fileSize': sz, 'hashValue': '0' * 40})
+            off += sz
+        self.srv.manifest = json.dumps({'originalFileSize': size, 'packageDigest': '0' * 64,
+                                        'numberOfSplitFiles': len(pieces), 'pieces': pieces}).encode()
         return 'http://%s:%d/json/0.json' % (ip, self.port)
 
 
@@ -464,13 +489,14 @@ def direct_install(ps4_ip, pkg_path, payload, ctype=None, ports=(9090, 9021, 902
     if not info:
         raise PkgError('not a valid PS4 PKG (header not found)')
     pc_ip = local_ip_for(ps4_ip)
-    server = FileServer(pkg_path).start()
+    server = FileServer(pkg_path, accept_ranges='none').start()
     lst = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         lst.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         lst.bind(('0.0.0.0', 0))
         lst.listen(4)
         manifest_url = server.enable_direct(pc_ip)
+        log('direct %s (%s)' % (DIRECT_VERSION, 'file URL' if '/file?' in manifest_url else 'split manifest, package > 4GB'))
         log('listening for the payload on %s:%d, files on port %d' % (pc_ip, lst.getsockname()[1], server.port))
         data = patch_payload(payload, pc_ip, lst.getsockname()[1])
         s, port = _connect_ps4(ps4_ip, ports, retry_delay=retry_delay)

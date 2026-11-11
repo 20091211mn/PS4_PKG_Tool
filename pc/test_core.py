@@ -228,8 +228,9 @@ class Network(unittest.TestCase):
 class MockPS4:
     """Plays the console side of the DirectPackageInstaller flow."""
 
-    def __init__(self, connect_back=True):
+    def __init__(self, connect_back=True, pkg=None):
         self.connect_back = connect_back
+        self.pkg = pkg
         self.lst = socket.socket()
         self.lst.bind(('127.0.0.1', 0))
         self.lst.listen(1)
@@ -276,15 +277,28 @@ class MockPS4:
             pos[0] += 4
             self.result.update(url=url, name=name, cid=cid, type=typ, size=size, icon=icon,
                                icon_bytes=info[pos[0]:pos[0] + icon], consumed=pos[0] + icon, total=len(info))
-            man = json.loads(urllib.request.urlopen(url, timeout=5).read())
-            piece = man['pieces'][0]
-            half = piece['fileSize'] // 2
-            buf = b''
-            for a, b in ((0, half - 1), (half, piece['fileSize'] - 1)):
-                req = urllib.request.Request(piece['url'], headers={'Range': 'bytes=%d-%d' % (a, b)})
-                buf += urllib.request.urlopen(req, timeout=5).read()
-            self.result['manifest'] = man
-            self.result['downloaded'] = buf
+            if url.endswith('.json'):                                   # package > 4GB: manifest of 4GB pieces
+                man = json.loads(urllib.request.urlopen(url, timeout=10).read())
+                self.result['manifest'] = man
+                checks = []
+                with open(self.pkg, 'rb') as f:
+                    for piece in man['pieces']:
+                        for lo, hi in ((0, 99), (piece['fileSize'] - 100, piece['fileSize'] - 1)):
+                            req = urllib.request.Request(piece['url'], headers={'Range': 'bytes=%d-%d' % (lo, hi)})
+                            got = urllib.request.urlopen(req, timeout=10).read()
+                            f.seek(piece['fileOffset'] + lo)
+                            checks.append(got == f.read(hi - lo + 1))
+                self.result['piece_checks'] = checks
+            else:                                                       # normal package: the file URL itself
+                total = size
+                half = total // 2
+                buf = b''
+                for lo, hi in ((0, half - 1), (half, total - 1)):
+                    req = urllib.request.Request(url, headers={'Range': 'bytes=%d-%d' % (lo, hi)})
+                    resp = urllib.request.urlopen(req, timeout=5)
+                    self.result['accept_ranges'] = resp.headers['Accept-Ranges']
+                    buf += resp.read()
+                self.result['downloaded'] = buf
         except Exception as e:  # reported by the test
             self.result['error'] = repr(e)
 
@@ -318,8 +332,9 @@ class DirectInstall(unittest.TestCase):
         self.assertEqual(r['version'], 1)
         self.assertEqual((r['name'], r['cid'], r['type'], r['icon']), ('My Game', 'UP0001-CUSA00001_00-GAME000000000000', 'PS4GD', 0))
         self.assertEqual(r['size'], 700000)
-        self.assertTrue(r['url'].endswith('/json/0.json'))
-        self.assertEqual(r['manifest']['pieces'][0]['fileSize'], 700000)
+        self.assertIn('/file?b64=', r['url'])                  # DPI sends the file URL itself ...
+        self.assertNotIn('json', r['url'])                       # ... and no manifest for a normal package
+        self.assertEqual(r['accept_ranges'], 'none')             # same header DirectPackageInstaller answers with
         with open(self.pkg, 'rb') as f:
             self.assertEqual(r['downloaded'], f.read())
 
@@ -339,8 +354,35 @@ class DirectInstall(unittest.TestCase):
         self.assertNotIn('error', r, r.get('error'))
         self.assertEqual((r['name'], r['type'], r['icon_bytes']), ('Real Game Title', 'PS4GP', png))
         self.assertEqual(r['consumed'], r['total'])                       # no stray bytes left over
-        self.assertGreaterEqual(hits[0], 1)                               # the console fetched the manifest ...
-        self.assertGreaterEqual(hits[1], 1)                               # ... and then the package
+        self.assertEqual(hits[0], 0)                                      # no manifest for a normal package
+        self.assertGreaterEqual(hits[1], 1)                               # the console fetched the package itself
+
+    def test_package_over_4gb_gets_split_manifest(self):
+        big = os.path.join(self.d, 'Big Game.pkg')
+        head = _pkg_with_sfo('gd', 'Big Game', total=300000)
+        with open(big, 'wb') as f:
+            f.write(head)
+            f.seek(4 * 1024 ** 3 + 500 * 1024 ** 2 - 1)
+            f.write(b'\x07')                                  # 4.5 GiB, sparse
+            f.seek(4294967296 + 12345)
+            f.write(b'PIECE-TWO-MARKER')
+        ps4 = MockPS4(pkg=big)
+        srv = core.direct_install('127.0.0.1', big, _fake_payload(), ports=(ps4.port,), wait=5)
+        try:
+            ps4.thread.join(30)
+        finally:
+            srv.stop()
+            ps4.close()
+        r = ps4.result
+        self.assertNotIn('error', r, r.get('error'))
+        self.assertTrue(r['url'].endswith('/json/0.json'))
+        man = r['manifest']
+        self.assertEqual(man['numberOfSplitFiles'], 2)
+        self.assertEqual([p['fileOffset'] for p in man['pieces']], [0, 4294967296])
+        self.assertEqual([p['fileSize'] for p in man['pieces']], [4294967296, 524288000])
+        self.assertEqual(man['originalFileSize'], 4 * 1024 ** 3 + 500 * 1024 ** 2)
+        self.assertTrue(all('/split?b64=' in p['url'] for p in man['pieces']))
+        self.assertEqual(r['piece_checks'], [True, True, True, True])      # slices match the real file bytes
 
     def test_type_override(self):
         ps4 = MockPS4()
